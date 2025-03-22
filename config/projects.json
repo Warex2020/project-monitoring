@@ -1,10 +1,10 @@
 {
   "m8k24xrfxg0nr": {
     "id": "m8k24xrfxg0nr",
-    "title": "123123fdsdf",
+    "title": "123123fdsdfasdasdsad",
     "status": "on-track",
-    "progress": 0,
-    "nextStep": "asdasd",
+    "progress": 67,
+    "nextStep": "hfgx",
     "team": [],
     "deadline": "",
     "steps": [
@@ -13,14 +13,7 @@
         "projectId": "m8k24xrfxg0nr",
         "title": "asdasd",
         "description": "sadasdsad",
-        "completed": false
-      },
-      {
-        "id": "m8k297bgxscsz",
-        "projectId": "m8k24xrfxg0nr",
-        "title": "asdasd",
-        "description": "asdsad",
-        "completed": false
+        "completed": true
       },
       {
         "id": "m8k29brundmu8",
@@ -28,7 +21,46 @@
         "title": "hfgx",
         "description": "fghfgh",
         "completed": false
+      },
+      {
+        "id": "m8k297bgxscsz",
+        "projectId": "m8k24xrfxg0nr",
+        "title": "asdasd",
+        "description": "asdsad",
+        "completed": true
       }
     ]
+  },
+  "m8kknof4p4ci8": {
+    "id": "m8kknof4p4ci8",
+    "title": "Test",
+    "status": "on-track",
+    "progress": 0,
+    "nextStep": "",
+    "team": [],
+    "deadline": "",
+    "steps": []
+  },
+  "m8kko8p2ybiam": {
+    "id": "m8kko8p2ybiam",
+    "title": "wieso",
+    "status": "delayed",
+    "progress": 0,
+    "nextStep": "asdasd",
+    "team": [
+      "sass"
+    ],
+    "deadline": "2025-03-23",
+    "steps": []
+  },
+  "m8kkour2u46m6": {
+    "id": "m8kkour2u46m6",
+    "title": "gdfg",
+    "status": "on-track",
+    "progress": 0,
+    "nextStep": "sdfgsdg",
+    "team": [],
+    "deadline": "",
+    "steps": []
   }
 }

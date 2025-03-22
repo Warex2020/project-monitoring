@@ -1,0 +1,312 @@
+/* Enhanced UI Styles - Version 1.2 */
+
+/* ------ UI Controls ------- */
+.ui-controls {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.control-label {
+    color: var(--text-color);
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.ui-controls select {
+    padding: 6px 10px;
+    border-radius: 6px;
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    font-size: 14px;
+    min-width: 150px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A3A8B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    padding-right: 28px;
+}
+
+.ui-controls select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
+    outline: none;
+}
+
+.ui-controls select option {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+}
+
+/* Action Button Variants */
+.action-button.secondary {
+    background-color: transparent;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.action-button.secondary:hover {
+    background-color: rgba(74, 108, 247, 0.1);
+}
+
+/* ------ Drag & Drop ------- */
+.step-item {
+    user-select: none;
+    position: relative;
+    cursor: grab;
+}
+
+.step-item.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.step-item.drop-target:before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -2px;
+    height: 2px;
+    background-color: var(--primary-color);
+    z-index: 2;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+/* ------ Gantt Chart ------- */
+.gantt-view {
+    width: 100%;
+    overflow-x: auto;
+    background-color: var(--card-bg);
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin-bottom: 30px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.gantt-view.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.gantt-header {
+    display: grid;
+    grid-template-columns: 200px repeat(auto-fit, minmax(30px, 1fr));
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    background-color: var(--card-bg);
+    z-index: 2;
+}
+
+.gantt-body {
+    display: grid;
+    grid-template-columns: 1fr;
+}
+
+.gantt-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    min-height: 40px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.gantt-row.status-on-track {
+    border-left: 3px solid var(--success-color);
+}
+
+.gantt-row.status-at-risk {
+    border-left: 3px solid var(--warning-color);
+}
+
+.gantt-row.status-delayed {
+    border-left: 3px solid var(--danger-color);
+}
+
+.gantt-row.status-completed {
+    border-left: 3px solid var(--info-color);
+}
+
+.gantt-step-row {
+    min-height: 30px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-left: none;
+}
+
+.gantt-step-row.completed {
+    opacity: 0.6;
+}
+
+.gantt-column {
+    padding: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.gantt-title-column {
+    font-weight: 500;
+    border-right: 1px solid var(--border-color);
+    padding-left: 15px;
+}
+
+.gantt-title-column.step-title {
+    padding-left: 25px;
+    font-weight: normal;
+    font-size: 13px;
+}
+
+.gantt-date-column {
+    text-align: center;
+    justify-content: center;
+    font-size: 12px;
+    padding: 5px;
+    border-right: 1px dotted rgba(255, 255, 255, 0.1);
+}
+
+.gantt-date-column.weekend {
+    background-color: rgba(0, 0, 0, 0.15);
+}
+
+.gantt-date-column.today {
+    background-color: rgba(74, 108, 247, 0.15);
+    font-weight: bold;
+}
+
+.gantt-bar-container {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
+    grid-template-rows: 1fr;
+    align-items: center;
+    height: 100%;
+}
+
+.gantt-project-bar {
+    height: 20px;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.1);
+    position: relative;
+    margin: 0 5px;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.gantt-project-bar.status-on-track {
+    background-color: rgba(46, 204, 113, 0.2);
+    border: 1px solid rgba(46, 204, 113, 0.5);
+}
+
+.gantt-project-bar.status-at-risk {
+    background-color: rgba(243, 156, 18, 0.2);
+    border: 1px solid rgba(243, 156, 18, 0.5);
+}
+
+.gantt-project-bar.status-delayed {
+    background-color: rgba(231, 76, 60, 0.2);
+    border: 1px solid rgba(231, 76, 60, 0.5);
+}
+
+.gantt-project-bar.status-completed {
+    background-color: rgba(52, 152, 219, 0.2);
+    border: 1px solid rgba(52, 152, 219, 0.5);
+}
+
+.gantt-progress-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.2);
+    z-index: 1;
+}
+
+.gantt-bar-title {
+    position: relative;
+    z-index: 2;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.gantt-deadline-marker {
+    position: absolute;
+    width: 0;
+    height: 20px;
+    border-right: 2px dashed var(--danger-color);
+    grid-row: 1;
+    z-index: 3;
+}
+
+.gantt-deadline-marker::after {
+    content: '📅';
+    position: absolute;
+    right: -10px;
+    top: -15px;
+    font-size: 12px;
+}
+
+.gantt-step-marker {
+    width: 12px;
+    height: 12px;
+    background-color: var(--primary-color);
+    border-radius: 50%;
+    grid-row: 1;
+    justify-self: center;
+    position: relative;
+}
+
+.gantt-step-marker.completed {
+    background-color: var(--success-color);
+}
+
+.gantt-step-marker.completed::after {
+    content: '✓';
+    position: absolute;
+    top: -3px;
+    left: 2px;
+    font-size: 10px;
+    color: white;
+}
+
+/* ------ Enhanced Animations ------- */
+.project-steps {
+    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.3s ease, 
+                padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                margin 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: max-height, opacity, padding, margin;
+}
+
+.project-card {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), 
+                box-shadow 0.3s ease, 
+                opacity 0.3s ease,
+                max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                margin 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, box-shadow, opacity, max-height, margin, padding;
+}
