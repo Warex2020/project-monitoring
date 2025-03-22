@@ -55,6 +55,13 @@ function connectWebSocket() {
         socket.onmessage = function(event) {
             try {
                 const message = JSON.parse(event.data);
+                
+                // Spezielle Behandlung für Synchronisierungsantworten
+                if (message.type === 'sync_response' && window._syncCallback) {
+                    window._syncCallback(message.data);
+                    return;
+                }
+                
                 handleWebSocketMessage(message);
             } catch (error) {
                 console.error('Fehler beim Verarbeiten der WebSocket-Nachricht:', error);
@@ -145,8 +152,20 @@ function showAccessDeniedMessage(reason) {
 
 // Sendet eine Nachricht über WebSocket
 function sendWebSocketMessage(type, data) {
+    // Offline-Modus prüfen
+    if (typeof OfflineManager !== 'undefined' && OfflineManager.isOffline()) {
+        console.log('Offline-Modus: Nachricht wird gepuffert', type);
+        return OfflineManager.addOfflineChange(type, data);
+    }
+    
     if (!socket || socket.readyState !== WebSocket.OPEN) {
         console.warn('WebSocket nicht verbunden. Nachricht kann nicht gesendet werden.');
+        
+        // Nachricht im Offline-Modus puffern, falls verfügbar
+        if (typeof OfflineManager !== 'undefined') {
+            return OfflineManager.addOfflineChange(type, data);
+        }
+        
         return false;
     }
     
@@ -161,6 +180,12 @@ function sendWebSocketMessage(type, data) {
         return true;
     } catch (error) {
         console.error('Fehler beim Senden der WebSocket-Nachricht:', error);
+        
+        // Nachricht im Offline-Modus puffern, falls verfügbar
+        if (typeof OfflineManager !== 'undefined') {
+            return OfflineManager.addOfflineChange(type, data);
+        }
+        
         return false;
     }
 }

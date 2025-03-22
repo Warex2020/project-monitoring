@@ -1,0 +1,175 @@
+/* Offline-Modus Styling */
+
+/* Offline-Indikator */
+.offline-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 5px 12px;
+    background-color: rgba(255, 193, 7, 0.15);
+    color: var(--warning-color);
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 14px;
+    margin-top: 5px;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    animation: pulse-warning 2s infinite;
+}
+
+.offline-indicator:before {
+    content: "⚠️ Offline";
+    margin-right: 5px;
+}
+
+.offline-indicator.active {
+    background-color: rgba(255, 193, 7, 0.25);
+}
+
+/* Badge für Anzahl der gepufferten Änderungen */
+.offline-badge {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    background-color: var(--danger-color);
+    color: white;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    border: 2px solid var(--card-bg);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Sync-Button */
+.sync-button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 5px 15px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-left: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.sync-button:hover {
+    background-color: var(--accent-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.sync-button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Notification System */
+.notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 350px;
+}
+
+.notification {
+    background-color: var(--card-bg);
+    border-left: 4px solid var(--primary-color);
+    color: var(--text-color);
+    padding: 15px 40px 15px 15px;
+    border-radius: 5px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    position: relative;
+    animation: slide-in 0.3s ease;
+    max-width: 100%;
+}
+
+.notification-info {
+    border-left-color: var(--primary-color);
+}
+
+.notification-success {
+    border-left-color: var(--success-color);
+}
+
+.notification-warning {
+    border-left-color: var(--warning-color);
+}
+
+.notification-error {
+    border-left-color: var(--danger-color);
+}
+
+.notification-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    cursor: pointer;
+    color: var(--secondary-color);
+    font-size: 18px;
+    font-weight: bold;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.notification-close:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+}
+
+.notification.fade-out {
+    animation: fade-out 0.3s ease forwards;
+}
+
+/* Connection Status Styles */
+#connection-indicator.offline {
+    background-color: var(--warning-color);
+}
+
+/* Animations */
+@keyframes pulse-warning {
+    0% { opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; }
+}
+
+@keyframes slide-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fade-out {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}

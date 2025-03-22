@@ -1,10 +1,10 @@
 {
   "m8k24xrfxg0nr": {
     "id": "m8k24xrfxg0nr",
-    "title": "Testsadasd",
-    "status": "completed",
-    "progress": 100,
-    "nextStep": "Alle Schritte abgeschlossen",
+    "title": "123123fdsdf",
+    "status": "on-track",
+    "progress": 0,
+    "nextStep": "asdasd",
     "team": [],
     "deadline": "",
     "steps": [
@@ -13,21 +13,21 @@
         "projectId": "m8k24xrfxg0nr",
         "title": "asdasd",
         "description": "sadasdsad",
-        "completed": true
+        "completed": false
       },
       {
         "id": "m8k297bgxscsz",
         "projectId": "m8k24xrfxg0nr",
         "title": "asdasd",
         "description": "asdsad",
-        "completed": true
+        "completed": false
       },
       {
         "id": "m8k29brundmu8",
         "projectId": "m8k24xrfxg0nr",
         "title": "hfgx",
         "description": "fghfgh",
-        "completed": true
+        "completed": false
       }
     ]
   }

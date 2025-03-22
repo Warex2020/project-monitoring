@@ -140,6 +140,31 @@ wss.on('connection', (ws, req) => {
     connections.add(ws);
     logEvent(`Verbindung von ${clientIp} autorisiert und hergestellt`);
     
+    // Offline-Synchronisierungsanfragen verarbeiten
+    ws.on('message', (message) => {
+        try {
+            const parsedMessage = JSON.parse(message);
+            
+            // Spezieller Handler für Synchronisierungsanfragen
+            if (parsedMessage.type === 'request_sync') {
+                // Sende aktuellen Zustand für die Synchronisierung
+                ws.send(JSON.stringify({
+                    type: 'sync_response',
+                    data: {
+                        projects: projects
+                    },
+                    timestamp: Date.now()
+                }));
+                return;
+            }
+            
+            // Normale Nachrichten verarbeiten
+            handleClientMessage(parsedMessage, ws);
+        } catch (error) {
+            console.error('Fehler beim Verarbeiten der Client-Nachricht:', error);
+        }
+    });
+    
     // Sende aktuelle Projekte an den neuen Client
     syncProjects(ws);
     
