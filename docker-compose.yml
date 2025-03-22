@@ -8,19 +8,25 @@ services:
     container_name: project-monitoring
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3420:3420"  # Port in der Konfiguration anpassen
     volumes:
       - ./config:/app/config
-      - ./server:/app/server
+      # Wir mounten nicht mehr den server-Ordner, da dies die installierten Module überschreiben würde
       - ./css:/app/css
       - ./js:/app/js
       - ./index.html:/app/index.html
-      - ./node_modules:/app/node_modules
     networks:
       - project-monitoring-network
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=3420  # Port auch hier anpassen
+    # Health check hinzufügen, um den Container-Status zu überwachen
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3420"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
 networks:
   project-monitoring-network:

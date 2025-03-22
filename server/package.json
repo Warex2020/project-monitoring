@@ -1,26 +1,11 @@
 {
-    "name": "project-monitoring-dashboard",
-    "version": "1.0.0",
-    "description": "Ein modernes IT-Projekt-Monitoring-Dashboard mit Live-Updates",
-    "main": "server/server.js",
-    "scripts": {
-      "start": "node server/server.js",
-      "dev": "nodemon server/server.js"
-    },
-    "keywords": [
-      "dashboard",
-      "monitoring",
-      "project",
-      "websocket",
-      "live-updates"
-    ],
-    "author": "",
-    "license": "MIT",
-    "dependencies": {
-      "ws": "^8.13.0",
-      "ip": "^1.1.8"
-    },
-    "devDependencies": {
-      "nodemon": "^2.0.22"
-    }
+  "name": "project-monitoring-server",
+  "version": "1.0.0",
+  "description": "Server für das IT-Projekt-Monitoring-Dashboard",
+  "main": "server.js",
+  "dependencies": {
+    "ws": "^8.13.0",
+    "ip": "^1.1.8",
+    "express": "^4.18.2"
   }
+}

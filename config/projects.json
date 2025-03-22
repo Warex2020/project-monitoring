@@ -1,0 +1,34 @@
+{
+  "m8k24xrfxg0nr": {
+    "id": "m8k24xrfxg0nr",
+    "title": "Testsadasd",
+    "status": "completed",
+    "progress": 100,
+    "nextStep": "Alle Schritte abgeschlossen",
+    "team": [],
+    "deadline": "",
+    "steps": [
+      {
+        "id": "m8k293wabs9dx",
+        "projectId": "m8k24xrfxg0nr",
+        "title": "asdasd",
+        "description": "sadasdsad",
+        "completed": true
+      },
+      {
+        "id": "m8k297bgxscsz",
+        "projectId": "m8k24xrfxg0nr",
+        "title": "asdasd",
+        "description": "asdsad",
+        "completed": true
+      },
+      {
+        "id": "m8k29brundmu8",
+        "projectId": "m8k24xrfxg0nr",
+        "title": "hfgx",
+        "description": "fghfgh",
+        "completed": true
+      }
+    ]
+  }
+}

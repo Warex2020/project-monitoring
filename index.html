@@ -158,6 +158,12 @@
     </template>
 
     <!-- JavaScript-Dateien einbinden -->
+    <script>
+        // Server-Port aus dem Meta-Tag lesen
+        window.serverConfig = {
+            port: 3420 // Standardmäßig 3420, wird beim Server-Start dynamisch gesetzt
+        };
+    </script>
     <script src="js/projectManager.js"></script>
     <script src="js/todoManager.js"></script>
     <script src="js/websocket.js"></script>

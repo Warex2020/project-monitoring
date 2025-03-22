@@ -19,11 +19,28 @@ function connectWebSocket() {
     updateConnectionStatus('connecting');
     
     try {
+        // Hole den Port aus der Konfiguration, wenn verfügbar
+        const getServerPort = () => {
+            try {
+                // Falls wir ein globales serverConfig-Objekt haben
+                if (window.serverConfig && window.serverConfig.port) {
+                    return window.serverConfig.port;
+                }
+                
+                // Verwende den aktuelle URL-Port oder Standard 3000
+                return window.location.port || 3420;
+            } catch (error) {
+                console.error('Fehler beim Ermitteln des Server-Ports:', error);
+                return 3420; // Fallback zum konfigurierten Port
+            }
+        };
+        
         // Erstelle WebSocket-Verbindung zum Server
         const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-        const host = window.location.hostname;
-        const port = 3000; // Standard-Port für unseren WebSocket-Server
+        const host = window.location.hostname || 'localhost';
+        const port = getServerPort(); // Dynamisch den Port ermitteln
         
+        console.log(`Verbindung zu WebSocket auf ${protocol}${host}:${port} wird hergestellt...`);
         socket = new WebSocket(`${protocol}${host}:${port}`);
         
         // Event-Handler für erfolgreiche Verbindung
@@ -51,9 +68,17 @@ function connectWebSocket() {
         };
         
         // Event-Handler für geschlossene Verbindung
-        socket.onclose = function() {
-            console.log('WebSocket-Verbindung geschlossen');
+        socket.onclose = function(event) {
+            console.log('WebSocket-Verbindung geschlossen', event.code, event.reason);
             isConnected = false;
+            
+            // Prüfe, ob die Verbindung aufgrund von Zugriffsrechten geschlossen wurde
+            if (event.code === 1008) {
+                showAccessDeniedMessage(event.reason);
+                updateConnectionStatus('denied');
+                return;
+            }
+            
             updateConnectionStatus('disconnected');
             
             // Versuche, die Verbindung wiederherzustellen
@@ -69,6 +94,53 @@ function connectWebSocket() {
         console.error('Fehler beim Verbinden mit WebSocket:', error);
         updateConnectionStatus('disconnected');
     }
+}
+
+// Zeigt eine Meldung an, wenn der Zugriff verweigert wurde
+function showAccessDeniedMessage(reason) {
+    // Erstelle einen Overlay-Container für die Meldung
+    const overlay = document.createElement('div');
+    overlay.className = 'access-denied-overlay';
+    
+    const messageBox = document.createElement('div');
+    messageBox.className = 'access-denied-message';
+    
+    const title = document.createElement('h2');
+    title.textContent = 'Zugriff verweigert';
+    
+    const message = document.createElement('p');
+    message.textContent = 'Ihre IP-Adresse ist nicht für den Zugriff auf dieses Dashboard autorisiert.';
+    
+    const ipInfo = document.createElement('div');
+    ipInfo.className = 'ip-info';
+    ipInfo.textContent = `Ihre IP-Adresse: ${window.location.hostname === 'localhost' ? '127.0.0.1 (localhost)' : '...wird geladen...'}`;
+    
+    // Versuchen Sie, die IP-Adresse zu ermitteln (nur für die Anzeige)
+    fetch('https://api.ipify.org?format=json')
+        .then(response => response.json())
+        .then(data => {
+            ipInfo.textContent = `Ihre IP-Adresse: ${data.ip}`;
+        })
+        .catch(() => {
+            // Fallback, falls die IP nicht ermittelt werden kann
+            ipInfo.textContent = 'Ihre IP-Adresse konnte nicht ermittelt werden.';
+        });
+    
+    const contactInfo = document.createElement('p');
+    contactInfo.textContent = 'Bitte kontaktieren Sie Ihren Administrator, um Zugriff zu erhalten.';
+    
+    // Alles zusammenfügen
+    messageBox.appendChild(title);
+    messageBox.appendChild(message);
+    messageBox.appendChild(ipInfo);
+    messageBox.appendChild(contactInfo);
+    overlay.appendChild(messageBox);
+    
+    // An das Dokument anhängen
+    document.body.appendChild(overlay);
+    
+    // Standard-UI ausblenden
+    document.querySelector('.container').style.display = 'none';
 }
 
 // Sendet eine Nachricht über WebSocket

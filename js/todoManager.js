@@ -97,6 +97,9 @@ const TodoManager = (() => {
         const totalSteps = project.steps.length;
         const progressPercentage = Math.round((completedSteps / totalSteps) * 100);
         
+        // Speichere alten Fortschrittswert, um Animation nur bei Änderung auszulösen
+        const oldProgress = project.progress;
+        
         // Aktualisiere Projekt-Fortschritt
         project.progress = progressPercentage;
         
@@ -106,8 +109,10 @@ const TodoManager = (() => {
         // Aktualisiere nächsten Schritt
         updateNextStep(project);
         
-        // Aktualisiere das Projekt
-        ProjectManager.updateProject(project);
+        // Aktualisiere das Projekt mit animiertem Übergang
+        if (oldProgress !== progressPercentage) {
+            ProjectManager.updateProject(project);
+        }
     };
 
     // Aktualisiert den Projektstatus basierend auf Fortschritt und Deadline

@@ -61,7 +61,12 @@ const ProjectManager = (() => {
         // Setze Fortschritt
         projectElement.querySelector('.progress-percentage').textContent = `${project.progress}%`;
         const progressValue = projectElement.querySelector('.progress-value');
-        progressValue.style.width = `${project.progress}%`;
+        
+        // Fortschrittsbalken träge animieren
+        // Verzögerte Animation mit kurzer Pause, um die Transition sichtbarer zu machen
+        setTimeout(() => {
+            progressValue.style.width = `${project.progress}%`;
+        }, 50);
         
         // Setze nächsten Schritt
         projectElement.querySelector('.next-step-description').textContent = project.nextStep;

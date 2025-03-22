@@ -1,0 +1,39 @@
+{
+  "name": "project-monitoring-dashboard",
+  "version": "1.0.0",
+  "description": "Ein modernes IT-Projekt-Monitoring-Dashboard mit Live-Updates",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "nodemon server/server.js",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:restart": "docker compose restart",
+    "docker:setup": "bash docker-run.sh",
+    "docker:setup:port": "bash docker-run.sh --port",
+    "postinstall": "echo 'Installation abgeschlossen. Führe \"npm run docker:setup\" aus, um den Docker-Container zu starten.'"
+  },
+  "keywords": [
+    "dashboard",
+    "monitoring",
+    "project",
+    "websocket",
+    "live-updates",
+    "IT-management"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.13.0",
+    "ip": "^1.1.8",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

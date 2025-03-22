@@ -1,25 +1,31 @@
 {
-    "allowedIps": [
-      "127.0.0.1",
-      "::1",
-      "192.168.1.0/24"
-    ],
-    "projectSettings": {
-      "defaultDeadlineDays": 30,
-      "criticalDeadlineDays": 7,
-      "statuses": [
-        "on-track",
-        "at-risk",
-        "delayed",
-        "completed"
-      ]
-    },
-    "uiSettings": {
-      "refreshInterval": 10000,
-      "theme": "dark",
-      "dateFormat": "dd.MM.yyyy",
-      "timeFormat": "HH:mm:ss",
-      "showCompletedProjects": true,
-      "projectsPerPage": 6
-    }
+  "allowedIps": [
+    "127.0.0.1",
+    "::1",
+    "localhost",
+    "192.168.1.0/24",
+    "10.0.0.0/8"
+  ],
+  "server": {
+    "port": 3420,
+    "host": "0.0.0.0"
+  },
+  "projectSettings": {
+    "defaultDeadlineDays": 30,
+    "criticalDeadlineDays": 7,
+    "statuses": [
+      "on-track",
+      "at-risk",
+      "delayed",
+      "completed"
+    ]
+  },
+  "uiSettings": {
+    "refreshInterval": 10000,
+    "theme": "dark",
+    "dateFormat": "dd.MM.yyyy",
+    "timeFormat": "HH:mm:ss",
+    "showCompletedProjects": true,
+    "projectsPerPage": 6
   }
+}

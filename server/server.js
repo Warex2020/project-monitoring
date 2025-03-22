@@ -6,25 +6,93 @@
  */
 
 const WebSocket = require('ws');
+const express = require('express');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const fileManager = require('./fileManager');
 const ip = require('ip');
 
+// Fehlerbehandlung für fehlende Module
+try {
+    // Überprüfe, ob die benötigten Module vorhanden sind
+    require('ws');
+    require('ip');
+    require('express');
+} catch (error) {
+    console.error('Fehler: Benötigte Module nicht gefunden:', error.message);
+    console.error('Bitte führen Sie "npm install" aus, um alle Abhängigkeiten zu installieren.');
+    process.exit(1);
+}
+
 // Konfigurationsdateien
 const CONFIG_PATH = path.join(__dirname, '..', 'config');
 const PROJECTS_FILE = path.join(CONFIG_PATH, 'projects.json');
 const CONFIG_FILE = path.join(CONFIG_PATH, 'config.json');
+const LOG_FILE = path.join(CONFIG_PATH, 'access.log');
+
+// Funktion zum Protokollieren von Ereignissen
+function logEvent(message) {
+    const timestamp = new Date().toISOString();
+    const logMessage = `${timestamp} - ${message}\n`;
+    
+    // Zum Log-File hinzufügen
+    fs.appendFile(LOG_FILE, logMessage, (err) => {
+        if (err) {
+            console.error('Fehler beim Schreiben ins Log-File:', err);
+        }
+    });
+    
+    // Auch in die Konsole ausgeben
+    console.log(message);
+}
 
 // Server-Konfiguration
-const PORT = process.env.PORT || 3000;
+let serverConfig;
+try {
+    const config = fileManager.loadJsonSync(CONFIG_FILE);
+    serverConfig = config.server || {};
+} catch (error) {
+    logEvent(`Fehler beim Laden der Serverkonfiguration: ${error.message}`);
+    serverConfig = {};
+}
 
-// Erstelle HTTP-Server
-const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('WebSocket-Server für Projekt-Monitoring-Dashboard');
+const PORT = serverConfig.port || process.env.PORT || 3000;
+const HOST = serverConfig.host || '0.0.0.0';
+
+// Erstelle Express-App
+const app = express();
+
+// Stelle die statischen Dateien aus dem Root-Verzeichnis zur Verfügung
+app.use(express.static(path.join(__dirname, '..')));
+
+// Route für die Hauptseite
+app.get('/', (req, res) => {
+    // HTML-Code auslesen
+    let htmlContent = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    
+    // Server-Port in das HTML einfügen
+    htmlContent = htmlContent.replace(
+        /port: \d+/, 
+        `port: ${PORT}`
+    );
+    
+    // Geänderte HTML zurückgeben
+    res.send(htmlContent);
 });
+
+// Route für Health-Check
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Fallback-Route
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
+});
+
+// Erstelle HTTP-Server mit Express
+const server = http.createServer(app);
 
 // Erstelle WebSocket-Server
 const wss = new WebSocket.Server({ server });
@@ -36,9 +104,9 @@ let projects = {};
 let connections = new Set();
 
 // Server starten
-server.listen(PORT, () => {
-    console.log(`Server gestartet auf http://localhost:${PORT}`);
-    console.log(`Lokale IP-Adresse: http://${ip.address()}:${PORT}`);
+server.listen(PORT, HOST, () => {
+    logEvent(`Server gestartet auf http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+    logEvent(`Lokale IP-Adresse: http://${ip.address()}:${PORT}`);
     
     // Lade Projekte beim Start
     loadProjects();
@@ -47,17 +115,30 @@ server.listen(PORT, () => {
 // WebSocket-Verbindung
 wss.on('connection', (ws, req) => {
     const clientIp = req.socket.remoteAddress;
-    console.log(`Neue Verbindung von ${clientIp}`);
+    logEvent(`Neue Verbindung von ${clientIp}`);
     
     // Prüfe IP-Beschränkung
     if (!isAllowedIp(clientIp)) {
-        console.log(`Verbindung von ${clientIp} abgelehnt (nicht autorisiert)`);
+        logEvent(`Verbindung von ${clientIp} abgelehnt (nicht autorisiert)`);
+        
+        // Sende eine Nachricht an den Client, bevor die Verbindung geschlossen wird
+        ws.send(JSON.stringify({
+            type: 'error',
+            data: {
+                message: 'Zugriff verweigert. Ihre IP-Adresse ist nicht autorisiert.',
+                ip: clientIp
+            },
+            timestamp: Date.now()
+        }));
+        
+        // Schließe die Verbindung mit einem speziellen Code
         ws.close(1008, 'Nicht autorisierte IP-Adresse');
         return;
     }
     
     // Verbindung zur Liste der aktiven Verbindungen hinzufügen
     connections.add(ws);
+    logEvent(`Verbindung von ${clientIp} autorisiert und hergestellt`);
     
     // Sende aktuelle Projekte an den neuen Client
     syncProjects(ws);
@@ -93,6 +174,7 @@ function isAllowedIp(clientIp) {
         
         // Wenn keine IP-Beschränkung konfiguriert ist oder die Liste leer ist, erlaube alle
         if (!config || !config.allowedIps || config.allowedIps.length === 0) {
+            logEvent(`Keine IP-Beschränkungen konfiguriert. Erlaube alle Verbindungen.`);
             return true;
         }
         
@@ -100,17 +182,61 @@ function isAllowedIp(clientIp) {
         const cleanIp = clientIp.replace(/^::ffff:/, '');
         
         // Lokale IPs immer erlauben
-        if (cleanIp === '127.0.0.1' || cleanIp === 'localhost' || cleanIp === '::1') {
+        const localIps = ['127.0.0.1', 'localhost', '::1'];
+        if (localIps.includes(cleanIp)) {
+            logEvent(`Lokale IP ${cleanIp} erkannt. Verbindung erlaubt.`);
             return true;
         }
         
         // Prüfe, ob IP in der erlaubten Liste ist
-        return config.allowedIps.includes(cleanIp);
+        for (const allowedIp of config.allowedIps) {
+            // Überprüfe, ob es eine CIDR-Notation ist (z.B. 192.168.1.0/24)
+            if (allowedIp.includes('/')) {
+                if (isIpInCidrRange(cleanIp, allowedIp)) {
+                    logEvent(`IP ${cleanIp} ist in CIDR-Range ${allowedIp}. Verbindung erlaubt.`);
+                    return true;
+                }
+            } 
+            // Exakte IP-Übereinstimmung
+            else if (allowedIp === cleanIp) {
+                logEvent(`IP ${cleanIp} ist in der erlaubten Liste. Verbindung erlaubt.`);
+                return true;
+            }
+        }
+        
+        // IP nicht in der Liste erlaubter IPs
+        logEvent(`IP ${cleanIp} ist nicht autorisiert. Verbindung abgelehnt.`);
+        return false;
     } catch (error) {
-        console.error('Fehler beim Prüfen der IP-Beschränkung:', error);
+        logEvent(`Fehler beim Prüfen der IP-Beschränkung: ${error.message}`);
         // Im Fehlerfall erlauben (Sicherheitsrisiko, aber besser als kompletter Ausfall)
         return true;
     }
+}
+
+// Prüft, ob eine IP-Adresse in einem CIDR-Bereich liegt
+function isIpInCidrRange(ip, cidr) {
+    const [range, bits] = cidr.split('/');
+    const mask = parseInt(bits, 10);
+    
+    // Konvertiere IP-Adresse in Integer
+    const ipInt = ipToInt(ip);
+    const rangeInt = ipToInt(range);
+    
+    // Berechne Netzwerkadresse und Broadcast-Adresse
+    const shiftBits = 32 - mask;
+    const netmask = ((1 << mask) - 1) << shiftBits;
+    const networkAddr = rangeInt & netmask;
+    const broadcastAddr = networkAddr | ((1 << shiftBits) - 1);
+    
+    // Prüfe, ob IP im Bereich liegt
+    return ipInt >= networkAddr && ipInt <= broadcastAddr;
+}
+
+// Konvertiert eine IP-Adresse in einen Integer
+function ipToInt(ip) {
+    return ip.split('.')
+        .reduce((int, octet) => (int << 8) + parseInt(octet, 10), 0) >>> 0;
 }
 
 // Lädt Projekte aus der Konfigurationsdatei
