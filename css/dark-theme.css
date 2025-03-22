@@ -1,0 +1,301 @@
+/* Dark Theme für IT-Abteilung */
+:root {
+    --primary-color: #4a6cf7;
+    --secondary-color: #A3A8B8;
+    --success-color: #2ecc71;
+    --info-color: #3498db;
+    --warning-color: #f39c12;
+    --danger-color: #e74c3c;
+    --background-color: #141b2d;
+    --card-bg: #1F2940;
+    --card-hover: #2a3754;
+    --text-color: #cbd5e1;
+    --heading-color: #f8fafc;
+    --border-color: #303c56;
+    --accent-color: #6366f1;
+    --modal-bg: #1F2940;
+    --input-bg: #141b2d;
+    --input-border: #303c56;
+    --button-hover: #4a6cf7;
+}
+
+body {
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+header {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+h1, h2, h3, h4 {
+    color: var(--heading-color);
+}
+
+.date-time {
+    color: var(--secondary-color);
+}
+
+/* Action Bar Styles */
+.action-button {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.action-button:hover {
+    background-color: #3959d9;
+}
+
+#connection-indicator.connected {
+    background-color: var(--success-color);
+}
+
+#connection-indicator.disconnected {
+    background-color: var(--danger-color);
+}
+
+#connection-indicator.connecting {
+    background-color: var(--warning-color);
+}
+
+/* Project Card Styles */
+.project-card {
+    background-color: var(--card-bg);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-color);
+}
+
+.project-card:hover {
+    background-color: var(--card-hover);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+}
+
+.project-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 5px;
+    height: 100%;
+    background-color: var(--primary-color);
+    opacity: 0.8;
+}
+
+.project-card[data-status="on-track"]::before {
+    background-color: var(--success-color);
+}
+
+.project-card[data-status="at-risk"]::before {
+    background-color: var(--warning-color);
+}
+
+.project-card[data-status="delayed"]::before {
+    background-color: var(--danger-color);
+}
+
+.project-card[data-status="completed"]::before {
+    background-color: var(--info-color);
+}
+
+.project-title {
+    color: var(--heading-color);
+}
+
+.status-on-track {
+    background-color: rgba(46, 204, 113, 0.15);
+    color: var(--success-color);
+}
+
+.status-at-risk {
+    background-color: rgba(243, 156, 18, 0.15);
+    color: var(--warning-color);
+}
+
+.status-delayed {
+    background-color: rgba(231, 76, 60, 0.15);
+    color: var(--danger-color);
+}
+
+.status-completed {
+    background-color: rgba(52, 152, 219, 0.15);
+    color: var(--info-color);
+}
+
+/* Progress Bar */
+.progress-bar {
+    background-color: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
+}
+
+.project-card[data-status="on-track"] .progress-value {
+    background-color: var(--success-color);
+}
+
+.project-card[data-status="at-risk"] .progress-value {
+    background-color: var(--warning-color);
+}
+
+.project-card[data-status="delayed"] .progress-value {
+    background-color: var(--danger-color);
+}
+
+.project-card[data-status="completed"] .progress-value {
+    background-color: var(--info-color);
+}
+
+/* Next Step */
+.next-step {
+    background-color: rgba(99, 102, 241, 0.1);
+    border-left: 4px solid var(--accent-color);
+}
+
+.next-step-title {
+    color: var(--accent-color);
+}
+
+/* Team members */
+.team-member {
+    background-color: var(--primary-color);
+    color: white;
+    border: 2px solid var(--card-bg);
+}
+
+.team-member:nth-child(2) {
+    background-color: var(--info-color);
+}
+
+.team-member:nth-child(3) {
+    background-color: var(--success-color);
+}
+
+.team-member:nth-child(4) {
+    background-color: var(--warning-color);
+}
+
+.team-member:nth-child(5) {
+    background-color: var(--danger-color);
+}
+
+.team-count {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--secondary-color);
+}
+
+/* Bottom info */
+.deadline-text {
+    color: var(--secondary-color);
+}
+
+.critical-deadline {
+    color: var(--danger-color);
+    font-weight: 500;
+}
+
+.toggle-icon {
+    color: var(--secondary-color);
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.project-card.expanded .toggle-icon {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Project steps */
+.project-steps {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+}
+
+.step-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.step-checkbox {
+    border: 2px solid var(--secondary-color);
+}
+
+.step-completed .step-checkbox {
+    border-color: var(--success-color);
+    background-color: var(--success-color);
+}
+
+.step-completed .step-checkbox:after {
+    color: white;
+}
+
+.step-title {
+    color: var(--heading-color);
+}
+
+.step-completed .step-title {
+    color: var(--secondary-color);
+}
+
+/* Tech accent */
+.tech-accent {
+    background: linear-gradient(135deg, var(--accent-color), transparent 70%);
+    opacity: 0.05;
+}
+
+/* Modal styles */
+.modal-content {
+    background-color: var(--modal-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+}
+
+.close-modal {
+    color: var(--secondary-color);
+}
+
+.close-modal:hover {
+    color: var(--heading-color);
+}
+
+.form-group label {
+    color: var(--heading-color);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    background-color: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-color);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.3);
+}
+
+.checkmark {
+    background-color: var(--input-bg);
+    border: 2px solid var(--secondary-color);
+}
+
+.checkbox-container:hover input ~ .checkmark {
+    border-color: var(--primary-color);
+    background-color: var(--input-bg);
+}
+
+.checkbox-container input:checked ~ .checkmark {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.submit-button {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.submit-button:hover {
+    background-color: var(--button-hover);
+    transform: translateY(-2px);
+}

@@ -1,0 +1,511 @@
+/* Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    padding: 24px;
+    border-radius: 14px;
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+h1, h2, h3, h4 {
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+.date-time {
+    font-size: 14px;
+}
+
+.dashboard-info {
+    text-align: right;
+}
+
+/* Action Bar */
+.action-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.action-button {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.connection-status {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+}
+
+#connection-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+/* Project Grid */
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 25px;
+}
+
+.project-card {
+    border-radius: 14px;
+    padding: 25px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.project-card:hover {
+    transform: translateY(-5px);
+}
+
+.tech-accent {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 150px;
+    height: 150px;
+    border-radius: 0 14px 0 0;
+    pointer-events: none;
+}
+
+.project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.project-title {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.project-status {
+    font-size: 14px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+/* Progress bars */
+.progress-container {
+    margin-bottom: 20px;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.progress-text {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.progress-percentage {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.progress-bar {
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-value {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+/* Next step section */
+.next-step {
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.next-step-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.next-step-description {
+    font-size: 14px;
+}
+
+/* Team members */
+.team-members {
+    display: flex;
+    margin-top: 20px;
+}
+
+.team-member {
+    width: 35px;
+    height: 35px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    margin-right: -10px;
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease;
+}
+
+.team-member:hover {
+    transform: translateY(-5px);
+}
+
+/* Bottom info */
+.bottom-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+.deadline {
+    display: flex;
+    align-items: center;
+}
+
+.deadline-icon {
+    margin-right: 5px;
+}
+
+/* Action icons */
+.action-icons {
+    display: flex;
+    gap: 15px;
+}
+
+.edit-icon, .add-step-icon, .edit-step-icon {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.edit-icon:hover, .add-step-icon:hover, .edit-step-icon:hover {
+    transform: scale(1.2);
+}
+
+.toggle-icon {
+    transition: transform 0.3s ease;
+    font-size: 18px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.project-card.expanded .toggle-icon {
+    transform: rotate(180deg);
+}
+
+/* Project steps */
+.project-steps {
+    display: none;
+    margin-top: 25px;
+    border-radius: 10px;
+    padding: 20px;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out, margin 0.4s ease-in-out;
+}
+
+.project-steps.active {
+    display: block;
+    max-height: 800px;
+}
+
+.steps-empty-message {
+    font-style: italic;
+    text-align: center;
+    padding: 20px 0;
+}
+
+.step-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    transition: all 0.3s ease;
+    padding: 10px;
+    border-radius: 8px;
+    position: relative;
+}
+
+.step-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.step-item:last-child {
+    margin-bottom: 0;
+}
+
+.step-checkbox {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    margin-right: 15px;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.step-completed .step-checkbox:after {
+    content: "✓";
+    position: absolute;
+    font-size: 14px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.step-content {
+    flex-grow: 1;
+}
+
+.step-title {
+    font-weight: 600;
+    margin-bottom: 5px;
+    transition: all 0.2s ease;
+}
+
+.step-completed .step-title {
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+
+.step-description {
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.step-completed .step-description {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.step-actions {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    position: relative;
+    margin: 10% auto;
+    padding: 30px;
+    border-radius: 15px;
+    width: 60%;
+    max-width: 600px;
+    animation: modalFadeIn 0.3s;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.close-modal {
+    position: absolute;
+    right: 20px;
+    top: 15px;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+
+.checkbox-container {
+    display: block;
+    position: relative;
+    padding-left: 35px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    font-size: 16px;
+    user-select: none;
+}
+
+.checkbox-container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 25px;
+    width: 25px;
+    border-radius: 5px;
+}
+
+.checkbox-container:hover input ~ .checkmark {
+    background-color: #ccc;
+}
+
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+}
+
+.checkbox-container input:checked ~ .checkmark:after {
+    display: block;
+}
+
+.checkbox-container .checkmark:after {
+    left: 9px;
+    top: 5px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 3px 3px 0;
+    transform: rotate(45deg);
+}
+
+.submit-button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+/* Blinking effect for next step */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.next-step {
+    animation: pulse 2s infinite;
+    position: relative;
+}
+
+.next-step::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .projects-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .dashboard-info {
+        text-align: center;
+        margin-top: 15px;
+    }
+
+    .modal-content {
+        width: 90%;
+    }
+}

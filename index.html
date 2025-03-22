@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT-Projekt-Monitoring Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dark-theme.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>IT-Projekt-Monitoring</h1>
+                <p>Systemüberblick und Entwicklungsprojekte</p>
+            </div>
+            <div class="dashboard-info">
+                <div class="date-time" id="current-date"></div>
+                <div class="date-time" id="current-time"></div>
+            </div>
+        </header>
+
+        <div class="action-bar">
+            <button id="add-project-btn" class="action-button">+ Neues Projekt</button>
+            <div class="connection-status">
+                <span id="connection-indicator"></span>
+                <span id="connection-text">Verbunden</span>
+            </div>
+        </div>
+
+        <div class="projects-grid" id="projects-container">
+            <!-- Projekte werden dynamisch eingefügt -->
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="project-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="modal-title">Neues Projekt</h2>
+            <form id="project-form">
+                <div class="form-group">
+                    <label for="project-title">Projekttitel</label>
+                    <input type="text" id="project-title" required>
+                </div>
+                <div class="form-group">
+                    <label for="project-status">Status</label>
+                    <select id="project-status">
+                        <option value="on-track">On Track</option>
+                        <option value="at-risk">At Risk</option>
+                        <option value="delayed">Delayed</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="project-progress">Fortschritt (%)</label>
+                    <input type="number" id="project-progress" min="0" max="100" value="0">
+                </div>
+                <div class="form-group">
+                    <label for="project-next-step">Nächster Schritt</label>
+                    <textarea id="project-next-step" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="project-team">Team (Komma-getrennte Initialien)</label>
+                    <input type="text" id="project-team" placeholder="z.B. TK, JL, AM">
+                </div>
+                <div class="form-group">
+                    <label for="project-deadline">Deadline</label>
+                    <input type="date" id="project-deadline">
+                </div>
+                <input type="hidden" id="project-id">
+                <button type="submit" class="submit-button">Speichern</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="step-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="step-modal-title">Neuer Schritt</h2>
+            <form id="step-form">
+                <div class="form-group">
+                    <label for="step-title">Titel</label>
+                    <input type="text" id="step-title" required>
+                </div>
+                <div class="form-group">
+                    <label for="step-description">Beschreibung</label>
+                    <textarea id="step-description" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-container">Abgeschlossen
+                        <input type="checkbox" id="step-completed">
+                        <span class="checkmark"></span>
+                    </label>
+                </div>
+                <input type="hidden" id="step-id">
+                <input type="hidden" id="step-project-id">
+                <button type="submit" class="submit-button">Speichern</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Projekt-Template (wird nicht angezeigt, dient als Vorlage für JS) -->
+    <template id="project-template">
+        <div class="project-card" data-project="" data-status="">
+            <div class="tech-accent"></div>
+            <div class="project-header">
+                <div class="project-title"></div>
+                <div class="project-status"></div>
+            </div>
+            <div class="progress-container">
+                <div class="progress-info">
+                    <div class="progress-text">Fortschritt</div>
+                    <div class="progress-percentage"></div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-value"></div>
+                </div>
+            </div>
+            <div class="next-step">
+                <div class="next-step-title">Nächster Schritt</div>
+                <div class="next-step-description"></div>
+            </div>
+            <div class="team-members">
+                <!-- Team-Mitglieder werden dynamisch eingefügt -->
+            </div>
+            <div class="bottom-info">
+                <div class="deadline">
+                    <span class="deadline-icon">⏱</span>
+                    <span class="deadline-text"></span>
+                </div>
+                <div class="action-icons">
+                    <span class="edit-icon" title="Projekt bearbeiten">✏️</span>
+                    <span class="add-step-icon" title="Schritt hinzufügen">+</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+            </div>
+            <div class="project-steps">
+                <!-- Schritte werden dynamisch eingefügt -->
+                <div class="steps-empty-message">Keine Schritte vorhanden. Klicken Sie auf +, um einen Schritt hinzuzufügen.</div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Schritt-Template -->
+    <template id="step-template">
+        <div class="step-item">
+            <div class="step-checkbox"></div>
+            <div class="step-content">
+                <div class="step-title"></div>
+                <div class="step-description"></div>
+            </div>
+            <div class="step-actions">
+                <span class="edit-step-icon" title="Schritt bearbeiten">✏️</span>
+            </div>
+        </div>
+    </template>
+
+    <!-- JavaScript-Dateien einbinden -->
+    <script src="js/projectManager.js"></script>
+    <script src="js/todoManager.js"></script>
+    <script src="js/websocket.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  project-monitoring:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: project-monitoring
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config:/app/config
+      - ./server:/app/server
+      - ./css:/app/css
+      - ./js:/app/js
+      - ./index.html:/app/index.html
+      - ./node_modules:/app/node_modules
+    networks:
+      - project-monitoring-network
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+
+networks:
+  project-monitoring-network:
+    driver: bridge
