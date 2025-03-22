@@ -1,66 +1,279 @@
 {
-  "m8k24xrfxg0nr": {
-    "id": "m8k24xrfxg0nr",
-    "title": "123123fdsdfasdasdsad",
+  "p001": {
+    "id": "p001",
+    "title": "ERP System Migration",
     "status": "on-track",
-    "progress": 67,
-    "nextStep": "hfgx",
-    "team": [],
-    "deadline": "",
+    "progress": 45,
+    "nextStep": "Finalize data mapping schema",
+    "team": [
+      "Thomas",
+      "Sarah",
+      "Michael",
+      "Julia"
+    ],
+    "deadline": "2025-06-15",
     "steps": [
       {
-        "id": "m8k293wabs9dx",
-        "projectId": "m8k24xrfxg0nr",
-        "title": "asdasd",
-        "description": "sadasdsad",
+        "id": "s001",
+        "projectId": "p001",
+        "title": "Requirements analysis",
+        "description": "Gather and document all business requirements for the new ERP system",
         "completed": true
       },
       {
-        "id": "m8k29brundmu8",
-        "projectId": "m8k24xrfxg0nr",
-        "title": "hfgx",
-        "description": "fghfgh",
+        "id": "s002",
+        "projectId": "p001",
+        "title": "Vendor selection",
+        "description": "Evaluate potential ERP solutions and select final vendor",
+        "completed": true
+      },
+      {
+        "id": "s003",
+        "projectId": "p001",
+        "title": "Data mapping",
+        "description": "Create schema for migrating data from legacy system to new ERP",
         "completed": false
       },
       {
-        "id": "m8k297bgxscsz",
-        "projectId": "m8k24xrfxg0nr",
-        "title": "asdasd",
-        "description": "asdsad",
+        "id": "s004",
+        "projectId": "p001",
+        "title": "Test environment setup",
+        "description": "Set up development and test environments for the new system",
+        "completed": true
+      },
+      {
+        "id": "s005",
+        "projectId": "p001",
+        "title": "User acceptance testing",
+        "description": "Conduct UAT with key stakeholders from each department",
+        "completed": false
+      },
+      {
+        "id": "s006",
+        "projectId": "p001",
+        "title": "Go-live preparations",
+        "description": "Final preparations for system cutover and go-live",
+        "completed": false
+      }
+    ]
+  },
+  "p002": {
+    "id": "p002",
+    "title": "Network Security Audit",
+    "status": "at-risk",
+    "progress": 65,
+    "nextStep": "Remediate critical vulnerabilities",
+    "team": [
+      "Alex",
+      "Daniela"
+    ],
+    "deadline": "2025-04-05",
+    "steps": [
+      {
+        "id": "s007",
+        "projectId": "p002",
+        "title": "Network infrastructure scanning",
+        "description": "Perform comprehensive scan of all network devices",
+        "completed": true
+      },
+      {
+        "id": "s008",
+        "projectId": "p002",
+        "title": "Vulnerability assessment",
+        "description": "Analyze scan results and identify security vulnerabilities",
+        "completed": true
+      },
+      {
+        "id": "s009",
+        "projectId": "p002",
+        "title": "Critical vulnerability remediation",
+        "description": "Address high and critical security findings",
+        "completed": false
+      },
+      {
+        "id": "s010",
+        "projectId": "p002",
+        "title": "Security policy updates",
+        "description": "Update network security policies based on findings",
+        "completed": false
+      },
+      {
+        "id": "s011",
+        "projectId": "p002",
+        "title": "Final report preparation",
+        "description": "Prepare final audit report for management",
+        "completed": false
+      }
+    ]
+  },
+  "p003": {
+    "id": "p003",
+    "title": "Cloud Migration - Phase 1",
+    "status": "completed",
+    "progress": 100,
+    "nextStep": "All steps completed",
+    "team": [
+      "Lisa",
+      "Martin",
+      "Sophie"
+    ],
+    "deadline": "2025-02-28",
+    "steps": [
+      {
+        "id": "s012",
+        "projectId": "p003",
+        "title": "Cloud provider selection",
+        "description": "Evaluate cloud providers and select the best solution",
+        "completed": true
+      },
+      {
+        "id": "s013",
+        "projectId": "p003",
+        "title": "Architecture design",
+        "description": "Design cloud architecture for initial applications",
+        "completed": true
+      },
+      {
+        "id": "s014",
+        "projectId": "p003",
+        "title": "Network setup",
+        "description": "Configure VPCs, subnets, and security groups",
+        "completed": true
+      },
+      {
+        "id": "s015",
+        "projectId": "p003",
+        "title": "Identity & access management",
+        "description": "Set up IAM policies and roles",
+        "completed": true
+      },
+      {
+        "id": "s016",
+        "projectId": "p003",
+        "title": "Migration of test workloads",
+        "description": "Migrate initial non-critical applications",
+        "completed": true
+      },
+      {
+        "id": "s017",
+        "projectId": "p003",
+        "title": "Documentation",
+        "description": "Document phase 1 infrastructure and processes",
         "completed": true
       }
     ]
   },
-  "m8kknof4p4ci8": {
-    "id": "m8kknof4p4ci8",
-    "title": "Test",
-    "status": "on-track",
-    "progress": 0,
-    "nextStep": "",
-    "team": [],
-    "deadline": "",
-    "steps": []
-  },
-  "m8kko8p2ybiam": {
-    "id": "m8kko8p2ybiam",
-    "title": "wieso",
+  "p004": {
+    "id": "p004",
+    "title": "Helpdesk System Upgrade",
     "status": "delayed",
-    "progress": 0,
-    "nextStep": "asdasd",
+    "progress": 30,
+    "nextStep": "Complete system customization",
     "team": [
-      "sass"
+      "Robert",
+      "Elena"
     ],
-    "deadline": "2025-03-23",
-    "steps": []
+    "deadline": "2025-03-10",
+    "steps": [
+      {
+        "id": "s018",
+        "projectId": "p004",
+        "title": "Requirements gathering",
+        "description": "Collect requirements from helpdesk team and users",
+        "completed": true
+      },
+      {
+        "id": "s019",
+        "projectId": "p004",
+        "title": "System evaluation",
+        "description": "Evaluate available helpdesk solutions",
+        "completed": true
+      },
+      {
+        "id": "s020",
+        "projectId": "p004",
+        "title": "System customization",
+        "description": "Customize the system to match company workflows",
+        "completed": false
+      },
+      {
+        "id": "s021",
+        "projectId": "p004",
+        "title": "Data migration",
+        "description": "Migrate existing tickets and knowledge base",
+        "completed": false
+      },
+      {
+        "id": "s022",
+        "projectId": "p004",
+        "title": "User training",
+        "description": "Train helpdesk staff on new system",
+        "completed": false
+      },
+      {
+        "id": "s023",
+        "projectId": "p004",
+        "title": "Go-live",
+        "description": "Launch new helpdesk system",
+        "completed": false
+      }
+    ]
   },
-  "m8kkour2u46m6": {
-    "id": "m8kkour2u46m6",
-    "title": "gdfg",
+  "p005": {
+    "id": "p005",
+    "title": "Windows 11 Deployment",
     "status": "on-track",
-    "progress": 0,
-    "nextStep": "sdfgsdg",
-    "team": [],
-    "deadline": "",
-    "steps": []
+    "progress": 75,
+    "nextStep": "Pilot rollout to management team",
+    "team": [
+      "Carlos",
+      "Ingrid",
+      "Patrick"
+    ],
+    "deadline": "2025-07-30",
+    "steps": [
+      {
+        "id": "s024",
+        "projectId": "p005",
+        "title": "Hardware inventory",
+        "description": "Audit all workstations for Windows 11 compatibility",
+        "completed": true
+      },
+      {
+        "id": "s025",
+        "projectId": "p005",
+        "title": "Image creation",
+        "description": "Create and test standard Windows 11 image",
+        "completed": true
+      },
+      {
+        "id": "s026",
+        "projectId": "p005",
+        "title": "Application compatibility testing",
+        "description": "Test all business applications on Windows 11",
+        "completed": true
+      },
+      {
+        "id": "s027",
+        "projectId": "p005",
+        "title": "Pilot deployment",
+        "description": "Deploy to management team for initial feedback",
+        "completed": false
+      },
+      {
+        "id": "s028",
+        "projectId": "p005",
+        "title": "Department rollout",
+        "description": "Roll out to departments in planned phases",
+        "completed": false
+      },
+      {
+        "id": "s029",
+        "projectId": "p005",
+        "title": "Post-deployment support",
+        "description": "Provide dedicated support for initial weeks after rollout",
+        "completed": false
+      }
+    ]
   }
 }

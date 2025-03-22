@@ -182,6 +182,14 @@ const ProjectManager = (() => {
         // Füge Projekt zum Speicher hinzu
         projects[project.id] = project;
         
+        // Check if project already exists in DOM
+        const projectElement = document.querySelector(`.project-card[data-project="${project.id}"]`);
+        
+        if (projectElement) {
+            // Remove the existing project card
+            projectElement.remove();
+        }
+        
         // Rendere neues Projekt
         renderProject(project);
     };

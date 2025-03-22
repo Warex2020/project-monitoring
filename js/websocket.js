@@ -1,85 +1,105 @@
 /**
- * websocket.js - Stellt WebSocket-Funktionalität für Live-Updates bereit
+ * websocket.js - Provides WebSocket functionality for live updates
+ * Version 1.3.0
  */
 
-// WebSocket-Verbindung
+// WebSocket connection
 let socket = null;
 let isConnected = false;
 let reconnectAttempts = 0;
 const maxReconnectAttempts = 5;
-const reconnectInterval = 5000; // 5 Sekunden
+const reconnectInterval = 5000; // 5 seconds
 
-// Verbindungsstatus-Indikatoren
+// Connection status indicators
 const connectionIndicator = document.getElementById('connection-indicator');
 const connectionText = document.getElementById('connection-text');
 
-// Stellt eine WebSocket-Verbindung her
+// Establishes a WebSocket connection
 function connectWebSocket() {
-    // Zeige "Verbinde..." Status
+    // Show "Connecting..." status
     updateConnectionStatus('connecting');
     
     try {
-        // Hole den Port aus der Konfiguration, wenn verfügbar
+        // Get the port from configuration if available
         const getServerPort = () => {
             try {
-                // Falls wir ein globales serverConfig-Objekt haben
+                // If we have a global serverConfig object
                 if (window.serverConfig && window.serverConfig.port) {
                     return window.serverConfig.port;
                 }
                 
-                // Verwende den aktuelle URL-Port oder Standard 3000
+                // Use the current URL port or default 3420
                 return window.location.port || 3420;
             } catch (error) {
-                console.error('Fehler beim Ermitteln des Server-Ports:', error);
-                return 3420; // Fallback zum konfigurierten Port
+                console.error('Error determining server port:', error);
+                return 3420; // Fallback to configured port
             }
         };
         
-        // Erstelle WebSocket-Verbindung zum Server
+        // Create WebSocket connection to server
         const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
         const host = window.location.hostname || 'localhost';
-        const port = getServerPort(); // Dynamisch den Port ermitteln
+        const port = getServerPort(); // Dynamically determine the port
         
-        console.log(`Verbindung zu WebSocket auf ${protocol}${host}:${port} wird hergestellt...`);
+        console.log(`Establishing WebSocket connection to ${protocol}${host}:${port}...`);
         socket = new WebSocket(`${protocol}${host}:${port}`);
         
-        // Event-Handler für erfolgreiche Verbindung
+        // Event handler for successful connection
         socket.onopen = function() {
-            console.log('WebSocket-Verbindung hergestellt');
+            console.log('WebSocket connection established');
             isConnected = true;
             reconnectAttempts = 0;
             updateConnectionStatus('connected');
+            
+            // Send authentication status if available
+            if (typeof AuthManager !== 'undefined' && typeof AuthManager.sendAuthStatus === 'function') {
+                setTimeout(() => {
+                    AuthManager.sendAuthStatus();
+                }, 500);
+            }
         };
         
-        // Event-Handler für eingehende Nachrichten
+        // Event handler for incoming messages
         socket.onmessage = function(event) {
             try {
                 const message = JSON.parse(event.data);
                 
-                // Spezielle Behandlung für Synchronisierungsantworten
+                // Special handling for synchronization responses
                 if (message.type === 'sync_response' && window._syncCallback) {
                     window._syncCallback(message.data);
                     return;
                 }
                 
+                // Special handling for authentication responses
+                if (message.type === 'auth_status') {
+                    console.log('Authentication status update:', message.data);
+                    return;
+                }
+                
+                // Special handling for error messages
+                if (message.type === 'error') {
+                    handleErrorMessage(message.data);
+                    return;
+                }
+                
                 handleWebSocketMessage(message);
             } catch (error) {
-                console.error('Fehler beim Verarbeiten der WebSocket-Nachricht:', error);
+                console.error('Error processing WebSocket message:', error);
             }
         };
         
-        // Event-Handler für Verbindungsfehler
+        // Event handler for connection errors
         socket.onerror = function(error) {
-            console.error('WebSocket-Fehler:', error);
+            console.error('WebSocket error:', error);
             updateConnectionStatus('disconnected');
         };
         
-        // Event-Handler für geschlossene Verbindung
+        // Event handler for closed connection
         socket.onclose = function(event) {
-            console.log('WebSocket-Verbindung geschlossen', event.code, event.reason);
+            console.log('WebSocket connection closed', event.code, event.reason);
             isConnected = false;
             
-            // Prüfe, ob die Verbindung aufgrund von Zugriffsrechten geschlossen wurde
+            // Check if connection was closed due to access rights
             if (event.code === 1008) {
                 showAccessDeniedMessage(event.reason);
                 updateConnectionStatus('denied');
@@ -88,24 +108,46 @@ function connectWebSocket() {
             
             updateConnectionStatus('disconnected');
             
-            // Versuche, die Verbindung wiederherzustellen
+            // Try to restore the connection
             if (reconnectAttempts < maxReconnectAttempts) {
                 reconnectAttempts++;
-                console.log(`Versuche erneut zu verbinden (${reconnectAttempts}/${maxReconnectAttempts})...`);
+                console.log(`Trying to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`);
                 setTimeout(connectWebSocket, reconnectInterval);
             } else {
-                console.error('Maximale Anzahl an Wiederverbindungsversuchen erreicht.');
+                console.error('Maximum number of reconnection attempts reached.');
             }
         };
     } catch (error) {
-        console.error('Fehler beim Verbinden mit WebSocket:', error);
+        console.error('Error connecting to WebSocket:', error);
         updateConnectionStatus('disconnected');
     }
 }
 
-// Zeigt eine Meldung an, wenn der Zugriff verweigert wurde
+// Handle error messages from the server
+function handleErrorMessage(error) {
+    console.error('Server error:', error);
+    
+    // Handle authentication errors
+    if (error.code === 'AUTH_REQUIRED') {
+        // If Authentication Manager is available, handle the error
+        if (typeof AuthManager !== 'undefined' && typeof AuthManager.handleAuthError === 'function') {
+            AuthManager.handleAuthError(error);
+        } else {
+            // Default action: redirect to login
+            window.location.href = '/login';
+        }
+    }
+    
+    // Show notification if offline manager is available
+    if (typeof OfflineManager !== 'undefined' && 
+        typeof OfflineManager.showNotification === 'function') {
+        OfflineManager.showNotification(error.message, 'error');
+    }
+}
+
+// Displays a message when access is denied
 function showAccessDeniedMessage(reason) {
-    // Erstelle einen Overlay-Container für die Meldung
+    // Create an overlay container for the message
     const overlay = document.createElement('div');
     overlay.className = 'access-denied-overlay';
     
@@ -113,60 +155,108 @@ function showAccessDeniedMessage(reason) {
     messageBox.className = 'access-denied-message';
     
     const title = document.createElement('h2');
-    title.textContent = 'Zugriff verweigert';
+    title.textContent = 'Access Denied';
     
     const message = document.createElement('p');
-    message.textContent = 'Ihre IP-Adresse ist nicht für den Zugriff auf dieses Dashboard autorisiert.';
+    message.textContent = 'Your IP address is not authorized to access this dashboard.';
     
     const ipInfo = document.createElement('div');
     ipInfo.className = 'ip-info';
-    ipInfo.textContent = `Ihre IP-Adresse: ${window.location.hostname === 'localhost' ? '127.0.0.1 (localhost)' : '...wird geladen...'}`;
+    ipInfo.textContent = `Your IP address: ${window.location.hostname === 'localhost' ? '127.0.0.1 (localhost)' : '...loading...'}`;
     
-    // Versuchen Sie, die IP-Adresse zu ermitteln (nur für die Anzeige)
+    // Try to determine the IP address (for display only)
     fetch('https://api.ipify.org?format=json')
         .then(response => response.json())
         .then(data => {
-            ipInfo.textContent = `Ihre IP-Adresse: ${data.ip}`;
+            ipInfo.textContent = `Your IP address: ${data.ip}`;
         })
         .catch(() => {
-            // Fallback, falls die IP nicht ermittelt werden kann
-            ipInfo.textContent = 'Ihre IP-Adresse konnte nicht ermittelt werden.';
+            // Fallback if IP cannot be determined
+            ipInfo.textContent = 'Your IP address could not be determined.';
         });
     
     const contactInfo = document.createElement('p');
-    contactInfo.textContent = 'Bitte kontaktieren Sie Ihren Administrator, um Zugriff zu erhalten.';
+    contactInfo.textContent = 'Please contact your administrator to request access.';
     
-    // Alles zusammenfügen
+    // Add login option if public access is available
+    if (typeof ConfigManager !== 'undefined' && 
+        typeof ConfigManager.isPublicMode === 'function' && 
+        ConfigManager.isPublicMode()) {
+        
+        const loginOption = document.createElement('p');
+        loginOption.textContent = 'You can still access the dashboard in read-only mode.';
+        
+        const loginButton = document.createElement('button');
+        loginButton.className = 'submit-button';
+        loginButton.textContent = 'Continue in Read-Only Mode';
+        loginButton.style.marginTop = '20px';
+        loginButton.onclick = () => {
+            overlay.remove();
+            document.querySelector('.container').style.display = 'block';
+        };
+        
+        messageBox.appendChild(loginOption);
+        messageBox.appendChild(loginButton);
+    }
+    
+    // Assemble everything
     messageBox.appendChild(title);
     messageBox.appendChild(message);
     messageBox.appendChild(ipInfo);
     messageBox.appendChild(contactInfo);
     overlay.appendChild(messageBox);
     
-    // An das Dokument anhängen
+    // Attach to the document
     document.body.appendChild(overlay);
     
-    // Standard-UI ausblenden
+    // Hide standard UI
     document.querySelector('.container').style.display = 'none';
 }
 
-// Sendet eine Nachricht über WebSocket
+// Sends a message via WebSocket
 function sendWebSocketMessage(type, data) {
-    // Offline-Modus prüfen
+    // Check offline mode
     if (typeof OfflineManager !== 'undefined' && OfflineManager.isOffline()) {
-        console.log('Offline-Modus: Nachricht wird gepuffert', type);
+        console.log('Offline mode: Message will be buffered', type);
         return OfflineManager.addOfflineChange(type, data);
     }
     
     if (!socket || socket.readyState !== WebSocket.OPEN) {
-        console.warn('WebSocket nicht verbunden. Nachricht kann nicht gesendet werden.');
+        console.warn('WebSocket not connected. Message cannot be sent.');
         
-        // Nachricht im Offline-Modus puffern, falls verfügbar
+        // Buffer message in offline mode if available
         if (typeof OfflineManager !== 'undefined') {
             return OfflineManager.addOfflineChange(type, data);
         }
         
         return false;
+    }
+    
+    // Check if authentication is required for this operation
+    const isWriteOperation = ['add_project', 'update_project', 'delete_project', 
+                              'add_step', 'update_step', 'delete_step'].includes(type);
+    
+    if (isWriteOperation && 
+        typeof AuthManager !== 'undefined' && 
+        typeof AuthManager.isAuthRequired === 'function' && 
+        typeof AuthManager.isAuthenticated === 'function') {
+        
+        if (AuthManager.isAuthRequired() && !AuthManager.isAuthenticated()) {
+            console.warn('Authentication required for this operation');
+            
+            // Show notification if offline manager is available
+            if (typeof OfflineManager !== 'undefined' && 
+                typeof OfflineManager.showNotification === 'function') {
+                OfflineManager.showNotification('Authentication required to make changes', 'error');
+            }
+            
+            // Redirect to login
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1500);
+            
+            return false;
+        }
     }
     
     const message = {
@@ -179,9 +269,9 @@ function sendWebSocketMessage(type, data) {
         socket.send(JSON.stringify(message));
         return true;
     } catch (error) {
-        console.error('Fehler beim Senden der WebSocket-Nachricht:', error);
+        console.error('Error sending WebSocket message:', error);
         
-        // Nachricht im Offline-Modus puffern, falls verfügbar
+        // Buffer message in offline mode if available
         if (typeof OfflineManager !== 'undefined') {
             return OfflineManager.addOfflineChange(type, data);
         }
@@ -190,14 +280,14 @@ function sendWebSocketMessage(type, data) {
     }
 }
 
-// Verarbeitet eingehende WebSocket-Nachrichten
+// Processes incoming WebSocket messages
 function handleWebSocketMessage(message) {
     if (!message || !message.type || !message.data) {
-        console.error('Ungültige WebSocket-Nachricht:', message);
+        console.error('Invalid WebSocket message:', message);
         return;
     }
     
-    console.log('WebSocket-Nachricht empfangen:', message.type);
+    console.log('WebSocket message received:', message.type);
     
     switch (message.type) {
         case 'add_project':
@@ -225,16 +315,21 @@ function handleWebSocketMessage(message) {
             break;
             
         case 'sync_projects':
-            // Vollständige Synchronisierung aller Projekte
+            // Complete synchronization of all projects
             handleProjectSync(message.data);
             break;
             
         default:
-            console.warn('Unbekannter Nachrichtentyp:', message.type);
+            console.warn('Unknown message type:', message.type);
+    }
+    
+    // Update UI based on current authentication status
+    if (typeof AuthManager !== 'undefined' && typeof AuthManager.updateUI === 'function') {
+        AuthManager.updateUI();
     }
 }
 
-// Verarbeitet Projekt-Synchronisierungsdaten
+// Processes project synchronization data
 function handleProjectSync(projects) {
     if (!projects) return;
     
@@ -242,28 +337,28 @@ function handleProjectSync(projects) {
         ProjectManager.updateProject(project);
     });
     
-    console.log('Projekte synchronisiert:', Object.keys(projects).length);
+    console.log('Projects synchronized:', Object.keys(projects).length);
 }
 
-// Aktualisiert die Anzeige des Verbindungsstatus
+// Updates the connection status display
 function updateConnectionStatus(status) {
-    // Entferne alle vorherigen Klassen
+    // Remove all previous classes
     connectionIndicator.className = '';
     
     switch (status) {
         case 'connected':
             connectionIndicator.classList.add('connected');
-            connectionText.textContent = 'Verbunden';
+            connectionText.textContent = 'Connected';
             break;
             
         case 'disconnected':
             connectionIndicator.classList.add('disconnected');
-            connectionText.textContent = 'Getrennt';
+            connectionText.textContent = 'Disconnected';
             break;
             
         case 'connecting':
             connectionIndicator.classList.add('connecting');
-            connectionText.textContent = 'Verbinde...';
+            connectionText.textContent = 'Connecting...';
             break;
     }
 }

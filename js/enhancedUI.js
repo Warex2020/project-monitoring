@@ -1,245 +1,107 @@
 /**
- * enhancedUI.js - Erweiterte UI-Funktionen für das Dashboard
- * 
- * Enthält:
- * - Drag-and-Drop für Aufgaben
- * - Sortier- und Filterfunktionen
- * - Verbesserte Animationen
- * - Erweiterte UI-Steuerelemente
+ * enhancedUI.js - Enhanced UI functions for the dashboard
+ * Version 1.3.0 - Bootstrap Integration
  */
 
 const EnhancedUI = (() => {
-    // Caching von DOM-Elementen
+    // Caching DOM elements
     let projectsContainer = null;
-    let filterControls = null;
-    let sortControls = null;
+    let filterSelect = null;
+    let sortSelect = null;
     let ganttViewButton = null;
-    let hideCompletedToggle = null;
+    let hideCompletedCheckbox = null;
     
-    // Zustand
+    // State
     let isDragging = false;
     let draggedElement = null;
     let hideCompleted = false;
     let currentSort = {field: 'deadline', direction: 'asc'};
     let currentFilter = null;
     
-    // Initialisiert die verbesserten UI-Funktionen
+    // Initializes enhanced UI functions
     const init = () => {
-        // DOM-Elemente cachen
+        // Cache DOM elements
         projectsContainer = document.getElementById('projects-container');
+        filterSelect = document.getElementById('project-filter');
+        sortSelect = document.getElementById('project-sort');
+        ganttViewButton = document.getElementById('gantt-view-btn');
+        hideCompletedCheckbox = document.getElementById('hide-completed');
         
-        // Erstelle UI-Kontrollelemente
-        createUIControls();
-        
-        // Event-Listener hinzufügen
+        // Add event listeners
         addEventListeners();
         
-        // Anfängliche Sortierung anwenden
+        // Apply initial sorting
         applySort();
         
-        console.log('EnhancedUI initialisiert');
+        console.log('EnhancedUI initialized with Bootstrap integration');
     };
 
-    // Erstellt die UI-Kontrollelemente für Filter, Sortierung etc.
-    const createUIControls = () => {
-        // Container für Kontrollelemente erstellen
-        const controlsContainer = document.createElement('div');
-        controlsContainer.className = 'ui-controls';
+    // Adds event listeners for drag-and-drop and other interactions
+    const addEventListeners = () => {
+        // Event listeners for filter/sort controls
+        if (filterSelect) {
+            filterSelect.addEventListener('change', () => {
+                currentFilter = filterSelect.value;
+                applyFilter();
+            });
+        }
         
-        // Erstelle Filter-Kontrollelemente
-        filterControls = createFilterControls();
+        if (sortSelect) {
+            sortSelect.addEventListener('change', () => {
+                const [field, direction] = sortSelect.value.split('-');
+                currentSort = {field, direction};
+                applySort();
+            });
+        }
         
-        // Erstelle Sortier-Kontrollelemente
-        sortControls = createSortControls();
-
-        // Erstelle "Abgeschlossene ausblenden"-Toggle
-        hideCompletedToggle = createHideCompletedToggle();
+        if (hideCompletedCheckbox) {
+            hideCompletedCheckbox.addEventListener('change', () => {
+                hideCompleted = hideCompletedCheckbox.checked;
+                applyHideCompleted();
+            });
+        }
         
-        // Erstelle Gantt-Chart-Button
-        ganttViewButton = createGanttViewButton();
+        if (ganttViewButton) {
+            ganttViewButton.addEventListener('click', toggleGanttView);
+        }
         
-        // Füge alle Kontrollelemente zum Container hinzu
-        controlsContainer.appendChild(filterControls);
-        controlsContainer.appendChild(sortControls);
-        controlsContainer.appendChild(hideCompletedToggle);
-        controlsContainer.appendChild(ganttViewButton);
+        // Delegated event listener for drag-and-drop
+        if (projectsContainer) {
+            projectsContainer.addEventListener('mousedown', handleDragStart);
+            document.addEventListener('mousemove', handleDragMove);
+            document.addEventListener('mouseup', handleDragEnd);
+            
+            // Add touch events for mobile devices
+            projectsContainer.addEventListener('touchstart', handleTouchStart, {passive: false});
+            document.addEventListener('touchmove', handleTouchMove, {passive: false});
+            document.addEventListener('touchend', handleTouchEnd);
+        }
         
-        // Füge den Container zur Seite hinzu
-        const actionBar = document.querySelector('.action-bar');
-        if (actionBar) {
-            actionBar.appendChild(controlsContainer);
+        // Watch for DOM changes to initialize drag-and-drop for new elements
+        if (projectsContainer) {
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'childList' && mutation.addedNodes.length) {
+                        initDraggableItems();
+                    }
+                });
+            });
+            
+            observer.observe(projectsContainer, { childList: true, subtree: true });
+            
+            // Initialize drag-and-drop for existing elements
+            initDraggableItems();
         }
     };
     
-    // Erstellt die Filter-Kontrollelemente
-    const createFilterControls = () => {
-        const container = document.createElement('div');
-        container.className = 'filter-controls control-group';
-        
-        // Filter-Label
-        const label = document.createElement('span');
-        label.className = 'control-label';
-        label.textContent = 'Filter:';
-        
-        // Filter-Dropdown
-        const select = document.createElement('select');
-        select.id = 'project-filter';
-        
-        // Filter-Optionen
-        const options = [
-            {value: '', text: 'Alle anzeigen'},
-            {value: 'on-track', text: 'On Track'},
-            {value: 'at-risk', text: 'At Risk'},
-            {value: 'delayed', text: 'Verzögert'},
-            {value: 'completed', text: 'Abgeschlossen'}
-        ];
-        
-        options.forEach(option => {
-            const optElement = document.createElement('option');
-            optElement.value = option.value;
-            optElement.textContent = option.text;
-            select.appendChild(optElement);
-        });
-        
-        // Event-Listener für Filter-Änderungen
-        select.addEventListener('change', () => {
-            currentFilter = select.value;
-            applyFilter();
-        });
-        
-        // Füge alles zum Container hinzu
-        container.appendChild(label);
-        container.appendChild(select);
-        
-        return container;
-    };
-    
-    // Erstellt die Sortier-Kontrollelemente
-    const createSortControls = () => {
-        const container = document.createElement('div');
-        container.className = 'sort-controls control-group';
-        
-        // Sortier-Label
-        const label = document.createElement('span');
-        label.className = 'control-label';
-        label.textContent = 'Sortieren:';
-        
-        // Sortier-Dropdown
-        const select = document.createElement('select');
-        select.id = 'project-sort';
-        
-        // Sortier-Optionen
-        const options = [
-            {value: 'deadline-asc', text: 'Deadline (aufsteigend)'},
-            {value: 'deadline-desc', text: 'Deadline (absteigend)'},
-            {value: 'progress-asc', text: 'Fortschritt (aufsteigend)'},
-            {value: 'progress-desc', text: 'Fortschritt (absteigend)'},
-            {value: 'title-asc', text: 'Titel (A-Z)'},
-            {value: 'title-desc', text: 'Titel (Z-A)'}
-        ];
-        
-        options.forEach(option => {
-            const optElement = document.createElement('option');
-            optElement.value = option.value;
-            optElement.textContent = option.text;
-            select.appendChild(optElement);
-        });
-        
-        // Event-Listener für Sortier-Änderungen
-        select.addEventListener('change', () => {
-            const [field, direction] = select.value.split('-');
-            currentSort = {field, direction};
-            applySort();
-        });
-        
-        // Füge alles zum Container hinzu
-        container.appendChild(label);
-        container.appendChild(select);
-        
-        return container;
-    };
-    
-    // Erstellt den "Abgeschlossene ausblenden"-Toggle
-    const createHideCompletedToggle = () => {
-        const container = document.createElement('div');
-        container.className = 'hide-completed-toggle control-group';
-        
-        // Erstelle Checkbox
-        const checkboxContainer = document.createElement('label');
-        checkboxContainer.className = 'checkbox-container control-label';
-        checkboxContainer.textContent = 'Erledigte ausblenden';
-        
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = 'hide-completed';
-        
-        const checkmark = document.createElement('span');
-        checkmark.className = 'checkmark';
-        
-        // Event-Listener für Checkbox
-        checkbox.addEventListener('change', () => {
-            hideCompleted = checkbox.checked;
-            applyHideCompleted();
-        });
-        
-        // Füge alles zum Container hinzu
-        checkboxContainer.prepend(checkbox);
-        checkboxContainer.appendChild(checkmark);
-        container.appendChild(checkboxContainer);
-        
-        return container;
-    };
-    
-    // Erstellt den Gantt-Chart-Button
-    const createGanttViewButton = () => {
-        const button = document.createElement('button');
-        button.className = 'gantt-view-button action-button secondary';
-        button.textContent = 'Gantt-Ansicht';
-        button.title = 'Zeigt Projekte in einer Gantt-Diagramm-Ansicht';
-        
-        // Event-Listener für Klick auf den Button
-        button.addEventListener('click', () => {
-            toggleGanttView();
-        });
-        
-        return button;
-    };
-    
-    // Fügt Event-Listener für Drag-and-Drop und andere Interaktionen hinzu
-    const addEventListeners = () => {
-        // Delegierter Event-Listener für Drag-and-Drop
-        projectsContainer.addEventListener('mousedown', handleDragStart);
-        document.addEventListener('mousemove', handleDragMove);
-        document.addEventListener('mouseup', handleDragEnd);
-        
-        // Zusätzlich Touch-Events für mobile Geräte
-        projectsContainer.addEventListener('touchstart', handleTouchStart, {passive: false});
-        document.addEventListener('touchmove', handleTouchMove, {passive: false});
-        document.addEventListener('touchend', handleTouchEnd);
-        
-        // Event-Delegation für Projekte updaten
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'childList' && mutation.addedNodes.length) {
-                    initDraggableItems();
-                }
-            });
-        });
-        
-        observer.observe(projectsContainer, { childList: true });
-        
-        // Initialisiere Drag-and-Drop für vorhandene Elemente
-        initDraggableItems();
-    };
-    
-    // Initialisiert Drag-and-Drop für Projektschritte
+    // Initialize drag-and-drop for project steps
     const initDraggableItems = () => {
-        // Für alle Projektschritte Drag-and-Drop aktivieren
+        // Make all project steps draggable
         document.querySelectorAll('.step-item').forEach(stepItem => {
             if (!stepItem.getAttribute('draggable')) {
                 stepItem.setAttribute('draggable', 'true');
                 
-                // Visuelles Feedback für Drag-and-Drop
+                // Visual feedback for drag-and-drop
                 stepItem.addEventListener('dragstart', (e) => {
                     e.dataTransfer.effectAllowed = 'move';
                     e.dataTransfer.setData('text/plain', stepItem.dataset.stepId);
@@ -252,7 +114,7 @@ const EnhancedUI = (() => {
             }
         });
         
-        // Für alle Projekte Drag-and-Drop-Ziele aktivieren
+        // Make all projects drop targets
         document.querySelectorAll('.project-steps').forEach(stepsContainer => {
             stepsContainer.addEventListener('dragover', (e) => {
                 e.preventDefault();
@@ -284,27 +146,27 @@ const EnhancedUI = (() => {
         });
     };
     
-    // Handler für Drag-Start (Maus)
+    // Handler for drag start (mouse)
     const handleDragStart = (e) => {
-        // Nur Schritte sind draggable, nicht die Projekte selbst
+        // Only steps are draggable, not the projects themselves
         const stepItem = e.target.closest('.step-item');
         if (!stepItem) return;
         
-        // Verhindern von Text-Selektion während Drag
+        // Prevent text selection during drag
         e.preventDefault();
         
         isDragging = true;
         draggedElement = stepItem;
         
-        // Visuelles Feedback
+        // Visual feedback
         stepItem.classList.add('dragging');
         
-        // Position des Mauszeigers innerhalb des Elements speichern
+        // Store cursor position within the element
         const rect = stepItem.getBoundingClientRect();
         stepItem.dragOffsetX = e.clientX - rect.left;
         stepItem.dragOffsetY = e.clientY - rect.top;
         
-        // Clone für Ghost-Drag-Element erstellen
+        // Create ghost drag element
         const clone = stepItem.cloneNode(true);
         clone.style.position = 'absolute';
         clone.style.opacity = '0.5';
@@ -315,33 +177,33 @@ const EnhancedUI = (() => {
         
         document.body.appendChild(clone);
         
-        // Position des Klons aktualisieren
+        // Update ghost position
         updateDragGhostPosition(e.clientX, e.clientY);
     };
     
-    // Handler für Touch-Start (Touch-Geräte)
+    // Handler for touch start (touch devices)
     const handleTouchStart = (e) => {
         const stepItem = e.target.closest('.step-item');
         if (!stepItem) return;
         
-        // Nur für Schritte, nicht für die Projekte selbst
+        // Only for steps, not for projects
         if (stepItem) {
-            e.preventDefault(); // Verhindern des Scrollens
+            e.preventDefault(); // Prevent scrolling
             
             const touch = e.touches[0];
             
             isDragging = true;
             draggedElement = stepItem;
             
-            // Visuelles Feedback
+            // Visual feedback
             stepItem.classList.add('dragging');
             
-            // Position des Touches innerhalb des Elements speichern
+            // Store touch position within the element
             const rect = stepItem.getBoundingClientRect();
             stepItem.dragOffsetX = touch.clientX - rect.left;
             stepItem.dragOffsetY = touch.clientY - rect.top;
             
-            // Clone für Ghost-Drag-Element erstellen
+            // Create ghost drag element
             const clone = stepItem.cloneNode(true);
             clone.style.position = 'absolute';
             clone.style.opacity = '0.5';
@@ -352,26 +214,26 @@ const EnhancedUI = (() => {
             
             document.body.appendChild(clone);
             
-            // Position des Klons aktualisieren
+            // Update ghost position
             updateDragGhostPosition(touch.clientX, touch.clientY);
         }
     };
     
-    // Handler für Drag-Move (Maus)
+    // Handler for drag move (mouse)
     const handleDragMove = (e) => {
         if (!isDragging || !draggedElement) return;
         
         updateDragGhostPosition(e.clientX, e.clientY);
         
-        // Finde das Ziel-Container unter dem Cursor
+        // Find the target container under the cursor
         const dropContainer = getDropContainerAtPoint(e.clientX, e.clientY);
         if (dropContainer) {
             const dragTarget = getDragTarget(e.clientY, dropContainer);
             
-            // Visuelles Feedback zurücksetzen
+            // Reset visual feedback
             resetDropTargets();
             
-            // Visuelles Feedback für das aktuelle Ziel
+            // Visual feedback for current target
             if (dragTarget) {
                 dragTarget.classList.add('drop-target');
             }
@@ -380,25 +242,25 @@ const EnhancedUI = (() => {
         }
     };
     
-    // Handler für Touch-Move (Touch-Geräte)
+    // Handler for touch move (touch devices)
     const handleTouchMove = (e) => {
         if (!isDragging || !draggedElement) return;
         
-        e.preventDefault(); // Verhindern des Scrollens
+        e.preventDefault(); // Prevent scrolling
         
         const touch = e.touches[0];
         
         updateDragGhostPosition(touch.clientX, touch.clientY);
         
-        // Finde das Ziel-Container unter dem Touch-Punkt
+        // Find the target container under the touch point
         const dropContainer = getDropContainerAtPoint(touch.clientX, touch.clientY);
         if (dropContainer) {
             const dragTarget = getDragTarget(touch.clientY, dropContainer);
             
-            // Visuelles Feedback zurücksetzen
+            // Reset visual feedback
             resetDropTargets();
             
-            // Visuelles Feedback für das aktuelle Ziel
+            // Visual feedback for current target
             if (dragTarget) {
                 dragTarget.classList.add('drop-target');
             }
@@ -407,51 +269,51 @@ const EnhancedUI = (() => {
         }
     };
     
-    // Handler für Drag-End (Maus)
+    // Handler for drag end (mouse)
     const handleDragEnd = (e) => {
         if (!isDragging) return;
         
-        // Finde das Ziel-Container unter dem Cursor
+        // Find the target container under the cursor
         const dropContainer = getDropContainerAtPoint(e.clientX, e.clientY);
         if (dropContainer) {
             const dragTarget = getDragTarget(e.clientY, dropContainer);
             
             if (dragTarget && draggedElement) {
-                // Verarbeite den Drop
+                // Process the drop
                 handleStepDrop(draggedElement.dataset.stepId, dragTarget, dropContainer);
             }
         }
         
-        // Bereinige den Drag-Zustand
+        // Clean up the drag state
         cleanupDrag();
     };
     
-    // Handler für Touch-End (Touch-Geräte)
+    // Handler for touch end (touch devices)
     const handleTouchEnd = (e) => {
         if (!isDragging) return;
         
-        // Wenn Touch-Ereignis beendet wird, kann es keine Koordinaten haben
-        // Verwende den letzten bekannten Touchpunkt oder beende den Drag
+        // When touch event ends, it may not have coordinates
+        // Use the last known touch point or end the drag
         if (e.changedTouches && e.changedTouches.length > 0) {
             const touch = e.changedTouches[0];
             
-            // Finde das Ziel-Container unter dem letzten Touch-Punkt
+            // Find the target container under the last touch point
             const dropContainer = getDropContainerAtPoint(touch.clientX, touch.clientY);
             if (dropContainer) {
                 const dragTarget = getDragTarget(touch.clientY, dropContainer);
                 
                 if (dragTarget && draggedElement) {
-                    // Verarbeite den Drop
+                    // Process the drop
                     handleStepDrop(draggedElement.dataset.stepId, dragTarget, dropContainer);
                 }
             }
         }
         
-        // Bereinige den Drag-Zustand
+        // Clean up the drag state
         cleanupDrag();
     };
     
-    // Aktualisiert die Position des Drag-Ghost-Elements
+    // Updates the position of the drag ghost element
     const updateDragGhostPosition = (clientX, clientY) => {
         const ghostElement = document.getElementById('drag-ghost');
         if (ghostElement && draggedElement) {
@@ -460,11 +322,11 @@ const EnhancedUI = (() => {
         }
     };
     
-    // Findet den Drop-Container unter dem angegebenen Punkt
+    // Finds the drop container under the specified point
     const getDropContainerAtPoint = (x, y) => {
         const elements = document.elementsFromPoint(x, y);
         
-        // Suche nach dem ersten .project-steps-Element in der Liste
+        // Look for the first .project-steps element in the list
         for (const element of elements) {
             if (element.closest('.project-steps')) {
                 return element.closest('.project-steps');
@@ -474,12 +336,12 @@ const EnhancedUI = (() => {
         return null;
     };
     
-    // Findet das Drag-Ziel basierend auf der Y-Position
+    // Finds the drag target based on Y position
     const getDragTarget = (clientY, container) => {
         const stepItems = Array.from(container.querySelectorAll('.step-item:not(.dragging)'));
         
         if (stepItems.length === 0) {
-            // Container ist leer, Ziel ist der Container selbst
+            // Container is empty, target is the container itself
             return container;
         }
         
@@ -495,103 +357,103 @@ const EnhancedUI = (() => {
         }, { offset: Number.NEGATIVE_INFINITY, element: stepItems[stepItems.length - 1] }).element;
     };
     
-    // Verarbeitet das Fallenlassen eines Schritts
+    // Processes dropping a step
     const handleStepDrop = (stepId, targetElement, targetContainer) => {
         if (!stepId) return;
         
-        // Finde den Ursprungsschritt
+        // Find the source step
         const sourceStep = document.querySelector(`.step-item[data-step-id="${stepId}"]`);
         if (!sourceStep) return;
         
         const sourceProjectId = sourceStep.closest('.project-card').dataset.project;
         const targetProjectId = targetContainer.closest('.project-card').dataset.project;
         
-        // Wenn Ziel ein Schritt ist, vor diesem einfügen
+        // If target is a step, insert before it
         if (targetElement.classList.contains('step-item')) {
             targetContainer.insertBefore(sourceStep, targetElement);
         } else {
-            // Sonst am Ende des Containers einfügen
+            // Otherwise insert at the end of the container
             targetContainer.appendChild(sourceStep);
         }
         
-        // Wenn Projekt sich geändert hat, Step zum neuen Projekt zuordnen
+        // If project has changed, reassign step to new project
         if (sourceProjectId !== targetProjectId) {
-            // Hol Step und Projekt-Daten aus den Managern
+            // Get step and project data from managers
             const step = TodoManager.getStep(sourceProjectId, stepId);
             if (step) {
-                // Schritt vom alten Projekt entfernen
+                // Remove step from old project
                 TodoManager.deleteStep(sourceProjectId, stepId);
                 
-                // Schritt im neuen Projekt hinzufügen
+                // Add step to new project
                 step.projectId = targetProjectId;
                 TodoManager.addStep(targetProjectId, step);
                 
-                // Aktualisiere UI
+                // Update UI
                 updateProjectProgress(sourceProjectId);
                 updateProjectProgress(targetProjectId);
             }
         } else {
-            // Nur die Reihenfolge der Schritte aktualisieren
+            // Just update the step order
             updateStepOrder(targetProjectId, targetContainer);
         }
     };
     
-    // Aktualisiert die Reihenfolge der Schritte in einem Projekt
+    // Updates the order of steps in a project
     const updateStepOrder = (projectId, stepsContainer) => {
         const project = ProjectManager.getProject(projectId);
         if (!project) return;
         
-        // Neue Reihenfolge der Schritte erfassen
+        // Capture new step order
         const newOrder = Array.from(stepsContainer.querySelectorAll('.step-item'))
             .map(item => item.dataset.stepId);
         
-        // Schritte in der neuen Reihenfolge sortieren
+        // Sort steps in the new order
         project.steps.sort((a, b) => {
             return newOrder.indexOf(a.id) - newOrder.indexOf(b.id);
         });
         
-        // Projekt aktualisieren
+        // Update project
         ProjectManager.updateProject(project);
         
-        // WebSocket-Nachricht senden
+        // Send WebSocket message
         sendWebSocketMessage('update_project', project);
     };
     
-    // Setzt das Styling für alle Drop-Targets zurück
+    // Resets styling for all drop targets
     const resetDropTargets = () => {
         document.querySelectorAll('.drop-target').forEach(el => {
             el.classList.remove('drop-target');
         });
     };
     
-    // Bereinigt den Drag-Zustand
+    // Cleans up the drag state
     const cleanupDrag = () => {
         isDragging = false;
         
-        // Ghost-Element entfernen
+        // Remove ghost element
         const ghostElement = document.getElementById('drag-ghost');
         if (ghostElement) {
             ghostElement.remove();
         }
         
-        // Drag-Styling zurücksetzen
+        // Reset drag styling
         if (draggedElement) {
             draggedElement.classList.remove('dragging');
             draggedElement = null;
         }
         
-        // Drop-Target-Styling zurücksetzen
+        // Reset drop target styling
         resetDropTargets();
     };
     
-    // Aktualisiert den Fortschritt eines Projekts
+    // Updates project progress
     const updateProjectProgress = (projectId) => {
         if (typeof TodoManager !== 'undefined' && typeof TodoManager.updateProjectProgress === 'function') {
             TodoManager.updateProjectProgress(projectId);
         }
     };
     
-    // Filtert Projekte basierend auf dem aktuellen Filter
+    // Filters projects based on current filter
     const applyFilter = () => {
         if (!projectsContainer) return;
         
@@ -599,7 +461,7 @@ const EnhancedUI = (() => {
         
         projects.forEach(project => {
             if (!currentFilter || project.dataset.status === currentFilter) {
-                // Erst prüfen ob das Projekt abgeschlossen ist und hideCompleted aktiv
+                // First check if project is completed and hideCompleted is active
                 if (hideCompleted && project.dataset.status === 'completed') {
                     fadeOutElement(project);
                 } else {
@@ -611,23 +473,23 @@ const EnhancedUI = (() => {
         });
     };
     
-    // Sortiert Projekte basierend auf der aktuellen Sortierung
+    // Sorts projects based on current sort
     const applySort = () => {
         if (!projectsContainer) return;
         
         const projects = Array.from(projectsContainer.querySelectorAll('.project-card'));
         
-        // Projekte sortieren
+        // Sort projects
         projects.sort((a, b) => {
             let valueA, valueB;
             
             switch (currentSort.field) {
                 case 'deadline':
-                    // Extrahiere Datum aus dem Text
+                    // Extract date from text
                     const deadlineTextA = a.querySelector('.deadline-text').textContent;
                     const deadlineTextB = b.querySelector('.deadline-text').textContent;
                     
-                    // Extrahiere nur das Datum aus dem Format "Fällig: DD.MM.YYYY"
+                    // Extract only the date from format "Fällig: DD.MM.YYYY"
                     const dateA = parseGermanDate(deadlineTextA.split(': ')[1]);
                     const dateB = parseGermanDate(deadlineTextB.split(': ')[1]);
                     
@@ -649,7 +511,7 @@ const EnhancedUI = (() => {
                     return 0;
             }
             
-            // Sortierrichtung anwenden
+            // Apply sort direction
             const direction = currentSort.direction === 'asc' ? 1 : -1;
             
             if (valueA < valueB) return -1 * direction;
@@ -657,13 +519,13 @@ const EnhancedUI = (() => {
             return 0;
         });
         
-        // Sortierte Projekte wieder in den Container einfügen
+        // Insert sorted projects back into container
         projects.forEach(project => {
             projectsContainer.appendChild(project);
         });
     };
     
-    // Wendet den "Abgeschlossene ausblenden"-Filter an
+    // Applies the "hide completed" filter
     const applyHideCompleted = () => {
         if (!projectsContainer) return;
         
@@ -678,78 +540,81 @@ const EnhancedUI = (() => {
         });
     };
     
-    // Schaltet die Gantt-Ansicht ein/aus
+    // Toggles the Gantt view
     const toggleGanttView = () => {
         const ganttView = document.getElementById('gantt-view');
         
         if (ganttView) {
-            // Gantt-Ansicht ausblenden
+            // Hide Gantt view
             ganttView.classList.remove('active');
             setTimeout(() => {
                 ganttView.remove();
             }, 300);
             
-            // Normale Ansicht wieder anzeigen
+            // Show normal view
             projectsContainer.style.display = 'grid';
             
-            // Button-Text aktualisieren
-            ganttViewButton.textContent = 'Gantt-Ansicht';
+            // Update button text
+            if (ganttViewButton) {
+                ganttViewButton.textContent = 'Gantt-Ansicht';
+            }
         } else {
-            // Normale Ansicht ausblenden
+            // Hide normal view
             projectsContainer.style.display = 'none';
             
-            // Gantt-Ansicht erstellen und anzeigen
+            // Create and show Gantt view
             createGanttView();
             
-            // Button-Text aktualisieren
-            ganttViewButton.textContent = 'Normale Ansicht';
+            // Update button text
+            if (ganttViewButton) {
+                ganttViewButton.textContent = 'Normale Ansicht';
+            }
         }
     };
     
-    // Erstellt die Gantt-Chart-Ansicht
+    // Creates the Gantt chart view
     const createGanttView = () => {
         const ganttView = document.createElement('div');
         ganttView.id = 'gantt-view';
         ganttView.className = 'gantt-view';
         
-        // Hole alle Projekte
+        // Get all projects
         const projects = Object.values(ProjectManager.getAllProjects());
         
-        // Erstelle Gantt-Chart-Header
+        // Create Gantt chart header
         const ganttHeader = createGanttHeader(projects);
         ganttView.appendChild(ganttHeader);
         
-        // Erstelle Gantt-Chart-Body
+        // Create Gantt chart body
         const ganttBody = createGanttBody(projects);
         ganttView.appendChild(ganttBody);
         
-        // Füge Gantt-View zur Seite hinzu
-        const container = document.querySelector('.container');
-        container.insertBefore(ganttView, projectsContainer.nextSibling);
+        // Add Gantt view to page
+        projectsContainer.parentNode.insertBefore(ganttView, projectsContainer.nextSibling);
         
-        // Animation für das Einblenden
+        // Animation for fade in
         setTimeout(() => {
             ganttView.classList.add('active');
         }, 10);
     };
     
-    // Erstellt den Header für das Gantt-Chart
+    // Creates the header for the Gantt chart
     const createGanttHeader = (projects) => {
         const header = document.createElement('div');
         header.className = 'gantt-header';
         
-        // Projekttitel-Spalte
+        // Project title column
         const titleColumn = document.createElement('div');
         titleColumn.className = 'gantt-column gantt-title-column';
         titleColumn.textContent = 'Projekt';
         header.appendChild(titleColumn);
         
-        // Zeitraum für das Gantt-Chart bestimmen
+        // Determine time range for the Gantt chart
         const timeRange = calculateTimeRange(projects);
         const startDate = timeRange.start;
         const endDate = timeRange.end;
         
-        // Zeitlinie erstellen (für jeden Tag eine Spalte)
+        // Create timeline (one column for each day)
         let currentDate = new Date(startDate);
         while (currentDate <= endDate) {
             const dateColumn = document.createElement('div');
@@ -760,12 +625,12 @@ const EnhancedUI = (() => {
             const month = String(currentDate.getMonth() + 1).padStart(2, '0');
             dateColumn.textContent = `${day}.${month}`;
             
-            // Wochenenden hervorheben
+            // Highlight weekends
             if (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
                 dateColumn.classList.add('weekend');
             }
             
-            // Heutigen Tag hervorheben
+            // Highlight today
             const today = new Date();
             if (currentDate.getDate() === today.getDate() && 
                 currentDate.getMonth() === today.getMonth() && 
@@ -775,70 +640,70 @@ const EnhancedUI = (() => {
             
             header.appendChild(dateColumn);
             
-            // Nächster Tag
+            // Next day
             currentDate.setDate(currentDate.getDate() + 1);
         }
         
         return header;
     };
     
-    // Erstellt den Body für das Gantt-Chart
+    // Creates the body for the Gantt chart
     const createGanttBody = (projects) => {
         const body = document.createElement('div');
         body.className = 'gantt-body';
         
-        // Zeitraum für das Gantt-Chart
+        // Time range for the Gantt chart
         const timeRange = calculateTimeRange(projects);
         const startDate = timeRange.start;
         const endDate = timeRange.end;
         const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
         
-        // Für jedes Projekt eine Zeile erstellen
+        // Create a row for each project
         projects.forEach(project => {
             const row = document.createElement('div');
             row.className = 'gantt-row';
             
-            // Status-Klasse für Styling
+            // Status class for styling
             row.classList.add(`status-${project.status}`);
             
-            // Projekttitel-Spalte
+            // Project title column
             const titleColumn = document.createElement('div');
             titleColumn.className = 'gantt-column gantt-title-column';
             titleColumn.textContent = project.title;
             row.appendChild(titleColumn);
             
-            // Projektbalken-Container über alle Tage
+            // Project bar container across all days
             const barContainer = document.createElement('div');
             barContainer.className = 'gantt-bar-container';
             barContainer.style.gridColumn = `2 / span ${totalDays}`;
             
-            // Deadline des Projekts parsen
+            // Parse project deadline
             const deadlineDate = project.deadline ? new Date(project.deadline) : null;
             
-            // Projektbalken erstellen
+            // Create project bar
             if (deadlineDate) {
                 const projectBar = document.createElement('div');
                 projectBar.className = 'gantt-project-bar';
                 
-                // Balken-Breite basierend auf Projektdauer (mindestens 1 Tag)
-                const startDay = 1; // Beginne am ersten Tag
+                // Bar width based on project duration (minimum 1 day)
+                const startDay = 1; // Start on first day
                 
-                // Berechne Tage zwischen Start und Deadline
+                // Calculate days between start and deadline
                 const deadlineDay = Math.ceil((deadlineDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
                 
-                // Positioniere den Balken
+                // Position the bar
                 projectBar.style.gridColumn = `${startDay} / ${deadlineDay + 1}`;
                 
-                // Statusklasse für Styling
+                // Status class for styling
                 projectBar.classList.add(`status-${project.status}`);
                 
-                // Fortschritt im Balken anzeigen
+                // Show progress in bar
                 const progressIndicator = document.createElement('div');
                 progressIndicator.className = 'gantt-progress-indicator';
                 progressIndicator.style.width = `${project.progress}%`;
                 projectBar.appendChild(progressIndicator);
                 
-                // Projekttitel im Balken anzeigen
+                // Show project title in bar
                 const barTitle = document.createElement('span');
                 barTitle.className = 'gantt-bar-title';
                 barTitle.textContent = `${project.progress}%`;
@@ -846,7 +711,7 @@ const EnhancedUI = (() => {
                 
                 barContainer.appendChild(projectBar);
                 
-                // Deadline-Marker
+                // Deadline marker
                 const deadlineMarker = document.createElement('div');
                 deadlineMarker.className = 'gantt-deadline-marker';
                 deadlineMarker.style.gridColumn = deadlineDay;
@@ -857,7 +722,7 @@ const EnhancedUI = (() => {
             row.appendChild(barContainer);
             body.appendChild(row);
             
-            // Schritte als Unterzeilen hinzufügen, wenn vorhanden
+            // Add steps as sub-rows, if available
             if (project.steps && project.steps.length > 0) {
                 project.steps.forEach(step => {
                     const stepRow = document.createElement('div');
@@ -867,22 +732,22 @@ const EnhancedUI = (() => {
                         stepRow.classList.add('completed');
                     }
                     
-                    // Schritt-Titel (eingerückt)
+                    // Step title (indented)
                     const stepTitleColumn = document.createElement('div');
                     stepTitleColumn.className = 'gantt-column gantt-title-column step-title';
                     stepTitleColumn.textContent = step.title;
                     stepRow.appendChild(stepTitleColumn);
                     
-                    // Schritt als Marker im Gantt-Chart
+                    // Step as marker in Gantt chart
                     const stepBarContainer = document.createElement('div');
                     stepBarContainer.className = 'gantt-bar-container';
                     stepBarContainer.style.gridColumn = `2 / span ${totalDays}`;
                     
-                    // Schritt-Marker erstellen (einfacher Punkt oder Diamant)
+                    // Create step marker (simple dot or diamond)
                     const stepMarker = document.createElement('div');
                     stepMarker.className = 'gantt-step-marker';
                     
-                    // Positioniere den Marker (vereinfacht in der Mitte)
+                    // Position marker (simplified in the middle)
                     const middleDay = Math.floor(totalDays / 2);
                     stepMarker.style.gridColumn = middleDay;
                     
@@ -901,15 +766,15 @@ const EnhancedUI = (() => {
         return body;
     };
     
-    // Berechnet den Zeitraum für das Gantt-Chart basierend auf den Projekten
+    // Calculates the time range for the Gantt chart based on projects
     const calculateTimeRange = (projects) => {
         let earliestDate = new Date();
         let latestDate = new Date();
         
-        // Setze die früheste auf heute und die späteste auf heute + 30 Tage als Standard
+        // Set earliest to today and latest to today + 30 days as default
         latestDate.setDate(latestDate.getDate() + 30);
         
-        // Durchlaufe alle Projekte und prüfe Deadlines
+        // Go through all projects and check deadlines
         projects.forEach(project => {
             if (project.deadline) {
                 const deadlineDate = new Date(project.deadline);
@@ -920,7 +785,7 @@ const EnhancedUI = (() => {
             }
         });
         
-        // Füge etwas Puffer hinzu (3 Tage vor und nach)
+        // Add some buffer (3 days before and after)
         earliestDate.setDate(earliestDate.getDate() - 3);
         latestDate.setDate(latestDate.getDate() + 3);
         
@@ -930,59 +795,52 @@ const EnhancedUI = (() => {
         };
     };
     
-    // Blendet ein Element sanft aus
+    // Fades out an element smoothly
     const fadeOutElement = (element) => {
-        // Erst die Transition vorbereiten
+        // Prepare the element for animation
         element.style.transition = 'opacity 0.3s ease, max-height 0.5s ease, margin 0.5s ease, padding 0.5s ease';
-        
-        // Dann die neuen Werte setzen
         element.style.opacity = '0';
         
-        // Nach kurzer Verzögerung ausblenden
+        // Hide after short delay
         setTimeout(() => {
             const originalHeight = element.offsetHeight;
             element.style.maxHeight = originalHeight + 'px';
             
-            // Kurze Verzögerung für den Übergang
+            // Short delay for transition
             setTimeout(() => {
                 element.style.maxHeight = '0';
-                element.style.marginTop = '0';
-                element.style.marginBottom = '0';
-                element.style.paddingTop = '0';
-                element.style.paddingBottom = '0';
+                element.style.margin = '0';
+                element.style.padding = '0';
                 element.style.overflow = 'hidden';
             }, 50);
         }, 300);
     };
     
-    // Blendet ein Element sanft ein
+    // Fades in an element smoothly
     const fadeInElement = (element) => {
-        // Reset der Stile
+        // Reset styles for animation
         element.style.transition = 'opacity 0.3s ease, max-height 0.5s ease, margin 0.5s ease, padding 0.5s ease';
+        element.style.maxHeight = '1000px'; // Higher than maximum project height
+        element.style.margin = '';
+        element.style.padding = '';
         
-        // Höhe zurücksetzen und sichtbar machen
-        element.style.maxHeight = '1000px'; // Höher als die maximale Projekthöhe
-        element.style.marginTop = '';
-        element.style.marginBottom = '';
-        element.style.paddingTop = '';
-        element.style.paddingBottom = '';
-        
-        // Kurze Verzögerung für den Übergang
+        // Short delay for transition
         setTimeout(() => {
             element.style.opacity = '1';
             
-            // Nach der Transition Overflow zurücksetzen
+            // Reset overflow after transition
             setTimeout(() => {
                 element.style.overflow = '';
+                element.style.maxHeight = '';
             }, 500);
         }, 50);
     };
     
-    // Hilfsfunktion zum Parsen eines deutschen Datums (DD.MM.YYYY)
+    // Helper function to parse a German date (DD.MM.YYYY)
     const parseGermanDate = (dateString) => {
         if (!dateString) return null;
         
-        // Regulärer Ausdruck für DD.MM.YYYY
+        // Regular expression for DD.MM.YYYY
         const match = dateString.match(/(\d{2})\.(\d{2})\.(\d{4})/);
         if (match) {
             return new Date(match[3], match[2] - 1, match[1]);
@@ -991,7 +849,7 @@ const EnhancedUI = (() => {
         return null;
     };
     
-    // Hilfsfunktion zum Formatieren eines Datums als DD.MM.YYYY
+    // Helper function to format a date as DD.MM.YYYY
     const formatDate = (date) => {
         if (!date) return '';
         
@@ -1008,9 +866,9 @@ const EnhancedUI = (() => {
     };
 })();
 
-// Initialisiere nach dem Laden des Dokuments
+// Initialize after document loads
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         EnhancedUI.init();
-    }, 1000); // Warte, bis andere Module initialisiert sind
+    }, 1000); // Wait for other modules to initialize
 });

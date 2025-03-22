@@ -3,47 +3,347 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IT-Projekt-Monitoring Dashboard</title>
-    <link rel="stylesheet" href="css/styles.css">
+    <title>IT-Projekt-Monitoring</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="css/dark-theme.css">
-    <link rel="stylesheet" href="css/offline.css">
+    <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/enhanced-ui.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="css/offline.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Additional styles for improved layout */
+        body {
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        
+        .container-fluid {
+            padding: 20px;
+            max-width: 100%;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px;
+            border-radius: 14px;
+            margin-bottom: 30px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+        }
+        
+        .header-left {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .date-time {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        #connection-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .action-left {
+            flex: 0 0 auto;
+        }
+        
+        .action-center {
+            flex: 1 1 auto;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .action-right {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .custom-select {
+            position: relative;
+            display: inline-block;
+            width: 220px;
+        }
+        
+        .custom-select select {
+            width: 100%;
+            padding: 10px 35px 10px 15px;
+            border-radius: 8px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            appearance: none;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .custom-select::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid var(--secondary-color);
+            pointer-events: none;
+        }
+        
+        .custom-select select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
+        }
+        
+        /* Project grid styles with enhanced transitions */
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            min-height: 200px; /* Prevent container collapse when empty */
+        }
+        
+        .project-card {
+            border-radius: 14px;
+            padding: 25px;
+            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            background-color: var(--card-bg);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            /* Add animation properties for smoother effects */
+            will-change: transform, opacity, box-shadow;
+            transform-origin: center;
+        }
+        
+        .project-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+            background-color: var(--card-hover);
+        }
+        
+        /* Add keyframe animations for project cards */
+        @keyframes cardAppear {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        
+        @keyframes cardFadeOut {
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+        }
+        
+        /* Responsive grid adjustments */
+        @media (min-width: 576px) {
+            .projects-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (min-width: 992px) {
+            .projects-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        @media (min-width: 1200px) {
+            .projects-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        /* Loading state styles */
+        .loading-placeholder {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 300px;
+            width: 100%;
+            border-radius: 14px;
+            background-color: var(--card-bg);
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 0.9; }
+            100% { opacity: 0.6; }
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .header-right {
+                margin-top: 15px;
+                justify-content: center;
+            }
+            
+            .action-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .action-center {
+                flex-direction: column;
+                margin: 10px 0;
+            }
+            
+            .action-right {
+                justify-content: space-between;
+            }
+            
+            .custom-select {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
-<body>
-    <div class="container">
+<body class="dark-theme">
+    <div class="container-fluid">
         <header>
-            <div>
-                <h1>IT-Projekt-Monitoring</h1>
-                <p>Systemüberblick und Entwicklungsprojekte</p>
+            <div class="header-left">
+                <h1 id="header-title">IT-Projekt-Monitoring</h1>
+                <p id="header-subtitle" class="subtitle">Dashboard für IT-Abteilung</p>
             </div>
-            <div class="dashboard-info">
-                <div class="date-time" id="current-date"></div>
-                <div class="date-time" id="current-time"></div>
+            <div class="header-right">
+                <div id="auth-container">
+                    <!-- Auth button will be added here by AuthManager -->
+                </div>
+                <div class="date-time">
+                    <span id="current-date">00.00.0000</span> | <span id="current-time">00:00:00</span>
+                </div>
+                <div class="connection-status">
+                    <div id="connection-indicator" class="connected"></div>
+                    <span id="connection-text">Connected</span>
+                </div>
             </div>
         </header>
 
         <div class="action-bar">
-            <button id="add-project-btn" class="action-button">+ Neues Projekt</button>
-            <div class="connection-status">
-                <span id="connection-indicator"></span>
-                <span id="connection-text">Verbunden</span>
+            <div class="action-left">
+                <button id="add-project-btn" class="action-button">+ Neues Projekt</button>
+            </div>
+            
+            <div class="action-center">
+                <div class="control-group">
+                    <div class="custom-select">
+                        <select id="project-filter">
+                            <option value="">Alle anzeigen</option>
+                            <option value="on-track">On Track</option>
+                            <option value="at-risk">At Risk</option>
+                            <option value="delayed">Verzögert</option>
+                            <option value="completed">Abgeschlossen</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="custom-select">
+                        <select id="project-sort">
+                            <option value="deadline-asc">Deadline (aufsteigend)</option>
+                            <option value="deadline-desc">Deadline (absteigend)</option>
+                            <option value="progress-asc">Fortschritt (aufsteigend)</option>
+                            <option value="progress-desc">Fortschritt (absteigend)</option>
+                            <option value="title-asc">Titel (A-Z)</option>
+                            <option value="title-desc">Titel (Z-A)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-right">
+                <label class="checkbox-container control-label">
+                    <input type="checkbox" id="hide-completed">
+                    <span class="checkmark"></span>
+                    Erledigte ausblenden
+                </label>
+                
+                <button id="gantt-view-btn" class="action-button secondary">Gantt-Ansicht</button>
             </div>
         </div>
 
-        <div class="projects-grid" id="projects-container">
-            <!-- Projekte werden dynamisch eingefügt -->
+        <!-- Projects Grid with Improved Animation Handling -->
+        <div id="projects-container" class="projects-grid">
+            <!-- Projects will be inserted here by JavaScript -->
+            <div class="loading-placeholder">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Modals -->
+    <!-- Modal for New/Edit Project -->
     <div id="project-modal" class="modal">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
             <h2 id="modal-title">Neues Projekt</h2>
             <form id="project-form">
+                <input type="hidden" id="project-id">
                 <div class="form-group">
-                    <label for="project-title">Projekttitel</label>
+                    <label for="project-title">Titel</label>
                     <input type="text" id="project-title" required>
                 </div>
                 <div class="form-group">
@@ -61,27 +361,29 @@
                 </div>
                 <div class="form-group">
                     <label for="project-next-step">Nächster Schritt</label>
-                    <textarea id="project-next-step" rows="3"></textarea>
+                    <input type="text" id="project-next-step">
                 </div>
                 <div class="form-group">
-                    <label for="project-team">Team (Komma-getrennte Initialien)</label>
-                    <input type="text" id="project-team" placeholder="z.B. TK, JL, AM">
+                    <label for="project-team">Team (kommagetrennt)</label>
+                    <input type="text" id="project-team" placeholder="z.B. Team-Mitglied 1, Team-Mitglied 2">
                 </div>
                 <div class="form-group">
                     <label for="project-deadline">Deadline</label>
                     <input type="date" id="project-deadline">
                 </div>
-                <input type="hidden" id="project-id">
                 <button type="submit" class="submit-button">Speichern</button>
             </form>
         </div>
     </div>
 
+    <!-- Modal for New/Edit Step -->
     <div id="step-modal" class="modal">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
             <h2 id="step-modal-title">Neuer Schritt</h2>
             <form id="step-form">
+                <input type="hidden" id="step-id">
+                <input type="hidden" id="step-project-id">
                 <div class="form-group">
                     <label for="step-title">Titel</label>
                     <input type="text" id="step-title" required>
@@ -96,81 +398,78 @@
                         <span class="checkmark"></span>
                     </label>
                 </div>
-                <input type="hidden" id="step-id">
-                <input type="hidden" id="step-project-id">
                 <button type="submit" class="submit-button">Speichern</button>
             </form>
         </div>
     </div>
 
-    <!-- Projekt-Template (wird nicht angezeigt, dient als Vorlage für JS) -->
+    <!-- Templates -->
     <template id="project-template">
-        <div class="project-card" data-project="" data-status="">
+        <div class="project-card" style="animation: cardAppear 0.6s ease forwards;">
             <div class="tech-accent"></div>
             <div class="project-header">
-                <div class="project-title"></div>
-                <div class="project-status"></div>
+                <div class="project-title">Projektname</div>
+                <div class="project-status">Status</div>
             </div>
             <div class="progress-container">
                 <div class="progress-info">
                     <div class="progress-text">Fortschritt</div>
-                    <div class="progress-percentage"></div>
+                    <div class="progress-percentage">0%</div>
                 </div>
                 <div class="progress-bar">
-                    <div class="progress-value"></div>
+                    <div class="progress-value" style="width: 0%"></div>
                 </div>
             </div>
             <div class="next-step">
                 <div class="next-step-title">Nächster Schritt</div>
-                <div class="next-step-description"></div>
+                <div class="next-step-description">Keiner</div>
             </div>
             <div class="team-members">
-                <!-- Team-Mitglieder werden dynamisch eingefügt -->
+                <!-- Team members will be dynamically inserted -->
             </div>
             <div class="bottom-info">
                 <div class="deadline">
-                    <span class="deadline-icon">⏱</span>
-                    <span class="deadline-text"></span>
+                    <span class="deadline-icon">📅</span>
+                    <span class="deadline-text">Keine Deadline</span>
                 </div>
                 <div class="action-icons">
-                    <span class="edit-icon" title="Projekt bearbeiten">✏️</span>
-                    <span class="add-step-icon" title="Schritt hinzufügen">+</span>
+                    <span class="edit-icon">✏️</span>
+                    <span class="add-step-icon">➕</span>
                     <span class="toggle-icon">▼</span>
                 </div>
             </div>
             <div class="project-steps">
-                <!-- Schritte werden dynamisch eingefügt -->
-                <div class="steps-empty-message">Keine Schritte vorhanden. Klicken Sie auf +, um einen Schritt hinzuzufügen.</div>
+                <div class="steps-empty-message">Keine Schritte vorhanden</div>
+                <!-- Steps will be dynamically inserted -->
             </div>
         </div>
     </template>
 
-    <!-- Schritt-Template -->
     <template id="step-template">
-        <div class="step-item">
+        <div class="step-item" style="animation: fadeIn 0.4s ease forwards;">
             <div class="step-checkbox"></div>
             <div class="step-content">
-                <div class="step-title"></div>
-                <div class="step-description"></div>
+                <div class="step-title">Schritt-Titel</div>
+                <div class="step-description">Beschreibung des Schritts</div>
             </div>
             <div class="step-actions">
-                <span class="edit-step-icon" title="Schritt bearbeiten">✏️</span>
+                <span class="edit-step-icon">✏️</span>
             </div>
         </div>
     </template>
 
-    <!-- JavaScript-Dateien einbinden -->
-    <script>
-        // Server-Port aus dem Meta-Tag lesen
-        window.serverConfig = {
-            port: 3420 // Standardmäßig 3420, wird beim Server-Start dynamisch gesetzt
-        };
-    </script>
-    <script src="js/projectManager.js"></script>
-    <script src="js/todoManager.js"></script>
+    <!-- Notification system template -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <!-- Bootstrap & JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/configManager.js"></script>
+    <script src="js/authManager.js"></script>
     <script src="js/websocket.js"></script>
+    <script src="js/todoManager.js"></script>
+    <script src="js/projectManager.js"></script>
     <script src="js/offlineManager.js"></script>
-    <script src="js/enhancedUI.js"></script>
     <script src="js/main.js"></script>
+    <script src="js/enhancedUI.js"></script>
 </body>
 </html>

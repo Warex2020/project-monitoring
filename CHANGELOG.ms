@@ -2,6 +2,40 @@
 
 Alle wichtigen Änderungen am IT-Projekt-Monitoring-Dashboard werden in dieser Datei dokumentiert.
 
+## [1.3.0] - 2025-03-23
+
+### Hinzugefügt
+- Zentrale Konfiguration für Titel und Untertitel des Dashboards
+  - Anpassbare Beschriftungen in config.json
+  - Dynamisches Laden der Texte beim Start
+- Flexibler Zugriffsmodus (Public/Private)
+  - Öffentlicher Modus ohne IP-Beschränkungen
+  - Privater Modus mit IP-Whitelist für zusätzliche Sicherheit
+- Authentifizierungssystem für Änderungen
+  - Möglichkeit, Login für Schreibzugriff zu erfordern
+  - Read-Only-Modus für nicht authentifizierte Benutzer
+  - Benutzer- und Rollenmanagement in der Konfiguration
+- Login-/Logout-Funktionalität
+  - Benutzerauthentifizierung über Login-Formular
+  - Session-Management für persistente Anmeldungen
+  - Abgesicherte API-Endpunkte
+
+### Verbessert
+- Überarbeitete Sicherheitsarchitektur
+  - Feingranulare Zugriffssteuerung für Aktionen
+  - Verbesserte WebSocket-Authentifizierung
+- Erweiterte Konfigurationsverwaltung
+  - Zentraler ConfigManager für Frontend-Zugriff
+  - Cached Config für bessere Performance
+- Verbesserte Benutzerfreundlichkeit
+  - Status-Indikatoren für Authentifizierung
+  - Dynamische Anpassung der UI basierend auf Berechtigungen
+
+### Geändert
+- Überarbeitung des Server-Codes für neue Sicherheitsfeatures
+- Anpassung der Client-Logik für Authentifizierungs-Workflows
+- Erweitertes Fehlerhandling für Authentifizierungsprobleme
+
 ## [1.2.0] - 2025-03-22
 
 ### Hinzugefügt

@@ -10,6 +10,26 @@
     "port": 3420,
     "host": "0.0.0.0"
   },
+  "dashboard": {
+    "title": "IT-Projekt-Monitoring",
+    "subtitle": "Dashboard für IT-Abteilung"
+  },
+  "security": {
+    "mode": "private",
+    "requireLoginForChanges": true,
+    "users": [
+      {
+        "username": "admin",
+        "password": "5f4dcc3b5aa765d61d8327deb882cf99", 
+        "role": "admin"
+      },
+      {
+        "username": "user",
+        "password": "5f4dcc3b5aa765d61d8327deb882cf99",
+        "role": "user"
+      }
+    ]
+  },
   "projectSettings": {
     "defaultDeadlineDays": 30,
     "criticalDeadlineDays": 7,
