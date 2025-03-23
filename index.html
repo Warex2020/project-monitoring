@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="IT-Projekt-Monitoring-Dashboard zur Überwachung von Projektfortschritten und Aufgaben">
     <title>IT-Projekt-Monitoring</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -14,255 +15,24 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        /* Additional styles for improved layout */
-        body {
-            overflow-x: hidden;
-            min-height: 100vh;
-        }
-        
-        .container-fluid {
-            padding: 20px;
-            max-width: 100%;
-        }
-        
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 24px;
-            border-radius: 14px;
-            margin-bottom: 30px;
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-        }
-        
-        .header-left {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        
-        .date-time {
-            display: flex;
-            align-items: center;
-            font-size: 14px;
-            padding: 6px 12px;
-            border-radius: 20px;
-            background-color: rgba(255, 255, 255, 0.05);
-        }
-        
-        .connection-status {
-            display: flex;
-            align-items: center;
-            font-size: 14px;
-            padding: 6px 12px;
-            border-radius: 20px;
-            background-color: rgba(255, 255, 255, 0.05);
-        }
-        
-        #connection-indicator {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-        
-        .action-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        
-        .action-left {
-            flex: 0 0 auto;
-        }
-        
-        .action-center {
-            flex: 1 1 auto;
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-        }
-        
-        .action-right {
-            flex: 0 0 auto;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .custom-select {
-            position: relative;
-            display: inline-block;
-            width: 220px;
-        }
-        
-        .custom-select select {
-            width: 100%;
-            padding: 10px 35px 10px 15px;
-            border-radius: 8px;
-            background-color: var(--card-bg);
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
-            appearance: none;
-            font-size: 14px;
-            cursor: pointer;
-        }
-        
-        .custom-select::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            right: 15px;
-            transform: translateY(-50%);
-            width: 0;
-            height: 0;
-            border-left: 5px solid transparent;
-            border-right: 5px solid transparent;
-            border-top: 5px solid var(--secondary-color);
-            pointer-events: none;
-        }
-        
-        .custom-select select:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
-        }
-        
-        /* Project grid styles with enhanced transitions */
-        .projects-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 25px;
-            min-height: 200px; /* Prevent container collapse when empty */
-        }
-        
-        .project-card {
-            border-radius: 14px;
-            padding: 25px;
-            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            background-color: var(--card-bg);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--border-color);
-            /* Add animation properties for smoother effects */
-            will-change: transform, opacity, box-shadow;
-            transform-origin: center;
-        }
-        
-        .project-card:hover {
-            transform: translateY(-5px) scale(1.02);
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
-            background-color: var(--card-hover);
-        }
-        
-        /* Add keyframe animations for project cards */
-        @keyframes cardAppear {
-            from {
-                opacity: 0;
-                transform: scale(0.9) translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1) translateY(0);
-            }
-        }
-        
-        @keyframes cardFadeOut {
-            from {
-                opacity: 1;
-                transform: scale(1);
-            }
-            to {
-                opacity: 0;
-                transform: scale(0.9);
-            }
-        }
-        
-        /* Responsive grid adjustments */
-        @media (min-width: 576px) {
-            .projects-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-        
-        @media (min-width: 992px) {
-            .projects-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-        
-        @media (min-width: 1200px) {
-            .projects-grid {
-                grid-template-columns: repeat(4, 1fr);
-            }
-        }
-        
-        /* Loading state styles */
-        .loading-placeholder {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 300px;
-            width: 100%;
-            border-radius: 14px;
-            background-color: var(--card-bg);
-            animation: pulse 1.5s infinite ease-in-out;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 0.6; }
-            50% { opacity: 0.9; }
-            100% { opacity: 0.6; }
-        }
-        
-        /* Mobile optimizations */
-        @media (max-width: 768px) {
-            header {
-                flex-direction: column;
-                text-align: center;
-            }
-            
-            .header-right {
-                margin-top: 15px;
-                justify-content: center;
-            }
-            
-            .action-bar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            
-            .action-center {
-                flex-direction: column;
-                margin: 10px 0;
-            }
-            
-            .action-right {
-                justify-content: space-between;
-            }
-            
-            .custom-select {
-                width: 100%;
-            }
-        }
-    </style>
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <!-- iOS-Unterstützung -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="IT-Projekte">
+    <link rel="apple-touch-icon" href="img/icon-192.png">
+    <!-- PWA-Unterstützung -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#141b2d">
 </head>
 <body class="dark-theme">
+    <!-- Skip-to-Content-Link für Screenreader und Tastaturnutzer -->
+    <a href="#main-content" class="skip-to-content">Zum Hauptinhalt springen</a>
+
     <div class="container-fluid">
-        <header>
+        <!-- Header mit semantischen Elementen -->
+        <header role="banner">
             <div class="header-left">
                 <h1 id="header-title">IT-Projekt-Monitoring</h1>
                 <p id="header-subtitle" class="subtitle">Dashboard für IT-Abteilung</p>
@@ -271,25 +41,29 @@
                 <div id="auth-container">
                     <!-- Auth button will be added here by AuthManager -->
                 </div>
-                <div class="date-time">
+                <div class="date-time" aria-live="polite">
                     <span id="current-date">00.00.0000</span> | <span id="current-time">00:00:00</span>
                 </div>
-                <div class="connection-status">
+                <div class="connection-status" aria-live="polite">
                     <div id="connection-indicator" class="connected"></div>
                     <span id="connection-text">Connected</span>
                 </div>
             </div>
         </header>
 
-        <div class="action-bar">
+        <!-- Haupt-Aktionsleiste -->
+        <div class="action-bar" role="toolbar" aria-label="Projekt-Steuerung">
             <div class="action-left">
-                <button id="add-project-btn" class="action-button">+ Neues Projekt</button>
+                <button id="add-project-btn" class="action-button" aria-label="Neues Projekt hinzufügen">
+                    + Neues Projekt
+                </button>
             </div>
             
             <div class="action-center">
                 <div class="control-group">
+                    <label for="project-filter" class="visually-hidden">Projekte filtern</label>
                     <div class="custom-select">
-                        <select id="project-filter">
+                        <select id="project-filter" aria-label="Projekte nach Status filtern">
                             <option value="">Alle anzeigen</option>
                             <option value="on-track">On Track</option>
                             <option value="at-risk">At Risk</option>
@@ -300,8 +74,9 @@
                 </div>
                 
                 <div class="control-group">
+                    <label for="project-sort" class="visually-hidden">Projekte sortieren</label>
                     <div class="custom-select">
-                        <select id="project-sort">
+                        <select id="project-sort" aria-label="Projekte sortieren nach">
                             <option value="deadline-asc">Deadline (aufsteigend)</option>
                             <option value="deadline-desc">Deadline (absteigend)</option>
                             <option value="progress-asc">Fortschritt (aufsteigend)</option>
@@ -315,36 +90,58 @@
             
             <div class="action-right">
                 <label class="checkbox-container control-label">
-                    <input type="checkbox" id="hide-completed">
+                    <input type="checkbox" id="hide-completed" aria-label="Erledigte Projekte ausblenden">
                     <span class="checkmark"></span>
                     Erledigte ausblenden
                 </label>
                 
-                <button id="gantt-view-btn" class="action-button secondary">Gantt-Ansicht</button>
+                <button id="gantt-view-btn" class="action-button secondary" aria-label="Zur Gantt-Ansicht wechseln">
+                    Gantt-Ansicht
+                </button>
             </div>
         </div>
 
-        <!-- Projects Grid with Improved Animation Handling -->
-        <div id="projects-container" class="projects-grid">
-            <!-- Projects will be inserted here by JavaScript -->
-            <div class="loading-placeholder">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
+        <!-- Hauptinhalt mit Projekten -->
+        <main id="main-content" role="main">
+            <!-- Projekte-Grid mit verbesserter Semantik -->
+            <div id="projects-container" class="projects-grid" role="region" aria-label="Projektübersicht">
+                <!-- Projekte werden hier durch JavaScript eingefügt -->
+                <div class="loading-placeholder" role="status" aria-live="polite">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Projekte werden geladen...</span>
+                    </div>
                 </div>
             </div>
-        </div>
+        </main>
+
+        <!-- Footer mit Versionsinformationen -->
+        <footer class="dashboard-footer">
+            <div class="container-fluid">
+                <div class="footer-content">
+                    <div class="footer-left">
+                        <span class="footer-project-name">IT-Projekt-Monitoring</span>
+                    </div>
+                    <div class="footer-right">
+                        <span class="footer-version">Version: 1.5.0</span>
+                        <span id="current-year"></span> <!-- Hier das fehlende Element hinzufügen -->
+                        <a href="/impressum" class="footer-link">Impressum</a>
+                        <a href="/datenschutz" class="footer-link">Datenschutz</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
     </div>
 
-    <!-- Modal for New/Edit Project -->
-    <div id="project-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal">&times;</span>
+    <!-- Modal für Neues/Bearbeiten Projekt mit verbesserter Zugänglichkeit -->
+    <div id="project-modal" class="modal" role="dialog" aria-labelledby="modal-title" aria-hidden="true">
+        <div class="modal-content" role="document">
+            <button class="close-modal" aria-label="Schließen">&times;</button>
             <h2 id="modal-title">Neues Projekt</h2>
             <form id="project-form">
                 <input type="hidden" id="project-id">
                 <div class="form-group">
                     <label for="project-title">Titel</label>
-                    <input type="text" id="project-title" required>
+                    <input type="text" id="project-title" required aria-required="true">
                 </div>
                 <div class="form-group">
                     <label for="project-status">Status</label>
@@ -357,7 +154,7 @@
                 </div>
                 <div class="form-group">
                     <label for="project-progress">Fortschritt (%)</label>
-                    <input type="number" id="project-progress" min="0" max="100" value="0">
+                    <input type="number" id="project-progress" min="0" max="100" value="0" aria-valuemin="0" aria-valuemax="100">
                 </div>
                 <div class="form-group">
                     <label for="project-next-step">Nächster Schritt</label>
@@ -376,25 +173,41 @@
         </div>
     </div>
 
-    <!-- Modal for New/Edit Step -->
-    <div id="step-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal">&times;</span>
+    <!-- Modal für Neuer/Bearbeiten Schritt -->
+    <div id="step-modal" class="modal" role="dialog" aria-labelledby="step-modal-title" aria-hidden="true">
+        <div class="modal-content" role="document">
+            <button class="close-modal" aria-label="Schließen">&times;</button>
             <h2 id="step-modal-title">Neuer Schritt</h2>
             <form id="step-form">
                 <input type="hidden" id="step-id">
                 <input type="hidden" id="step-project-id">
                 <div class="form-group">
                     <label for="step-title">Titel</label>
-                    <input type="text" id="step-title" required>
+                    <input type="text" id="step-title" required aria-required="true">
                 </div>
                 <div class="form-group">
                     <label for="step-description">Beschreibung</label>
                     <textarea id="step-description" rows="3"></textarea>
                 </div>
                 <div class="form-group">
+                    <label for="step-due-date">Fälligkeitsdatum</label>
+                    <input type="date" id="step-due-date">
+                </div>
+                <div class="form-group">
+                    <label for="step-priority">Priorität</label>
+                    <select id="step-priority">
+                        <option value="low">Niedrig</option>
+                        <option value="medium" selected>Mittel</option>
+                        <option value="high">Hoch</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="step-assigned-to">Zugewiesen an</label>
+                    <input type="text" id="step-assigned-to" placeholder="Name der zuständigen Person">
+                </div>
+                <div class="form-group">
                     <label class="checkbox-container">Abgeschlossen
-                        <input type="checkbox" id="step-completed">
+                        <input type="checkbox" id="step-completed" aria-label="Schritt als abgeschlossen markieren">
                         <span class="checkmark"></span>
                     </label>
                 </div>
@@ -403,20 +216,20 @@
         </div>
     </div>
 
-    <!-- Templates -->
+    <!-- Templates mit verbesserten ARIA-Attributen -->
     <template id="project-template">
-        <div class="project-card" style="animation: cardAppear 0.6s ease forwards;">
+        <div class="project-card" style="animation: cardAppear 0.6s ease forwards;" tabindex="0">
             <div class="tech-accent"></div>
             <div class="project-header">
-                <div class="project-title">Projektname</div>
-                <div class="project-status">Status</div>
+                <div class="project-title" role="heading" aria-level="3">Projektname</div>
+                <div class="project-status" role="status">Status</div>
             </div>
             <div class="progress-container">
                 <div class="progress-info">
                     <div class="progress-text">Fortschritt</div>
                     <div class="progress-percentage">0%</div>
                 </div>
-                <div class="progress-bar">
+                <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
                     <div class="progress-value" style="width: 0%"></div>
                 </div>
             </div>
@@ -424,45 +237,53 @@
                 <div class="next-step-title">Nächster Schritt</div>
                 <div class="next-step-description">Keiner</div>
             </div>
-            <div class="team-members">
-                <!-- Team members will be dynamically inserted -->
-            </div>
+            <div class="team-members" aria-label="Teammitglieder"></div>
             <div class="bottom-info">
                 <div class="deadline">
-                    <span class="deadline-icon">📅</span>
+                    <span class="deadline-icon" aria-hidden="true">📅</span>
                     <span class="deadline-text">Keine Deadline</span>
                 </div>
                 <div class="action-icons">
-                    <span class="edit-icon">✏️</span>
-                    <span class="add-step-icon">➕</span>
-                    <span class="toggle-icon">▼</span>
+                    <button class="edit-icon" data-tooltip="Projekt bearbeiten" aria-label="Projekt bearbeiten">✏️</button>
+                    <button class="add-step-icon" data-tooltip="Schritt hinzufügen" aria-label="Schritt hinzufügen">➕</button>
+                    <button class="toggle-icon" data-tooltip="Schritte ein-/ausblenden" aria-label="Schritte ein-/ausblenden" aria-expanded="false">▼</button>
                 </div>
             </div>
-            <div class="project-steps">
+            <div class="project-steps" role="list" aria-label="Projektschritte">
                 <div class="steps-empty-message">Keine Schritte vorhanden</div>
-                <!-- Steps will be dynamically inserted -->
+                <!-- Schritte werden dynamisch eingefügt -->
             </div>
         </div>
     </template>
 
     <template id="step-template">
-        <div class="step-item" style="animation: fadeIn 0.4s ease forwards;">
-            <div class="step-checkbox"></div>
+        <div class="step-item" style="animation: fadeIn 0.4s ease forwards;" role="listitem">
+            <div class="step-checkbox" role="checkbox" aria-checked="false" tabindex="0"></div>
             <div class="step-content">
                 <div class="step-title">Schritt-Titel</div>
                 <div class="step-description">Beschreibung des Schritts</div>
             </div>
             <div class="step-actions">
-                <span class="edit-step-icon">✏️</span>
+                <button class="edit-step-icon" data-tooltip="Schritt bearbeiten" aria-label="Schritt bearbeiten">✏️</button>
             </div>
         </div>
     </template>
 
-    <!-- Notification system template -->
-    <div id="notification-container" class="notification-container"></div>
+    <!-- Notification System Container -->
+    <div id="notification-container" class="notification-container" aria-live="polite"></div>
 
-    <!-- Bootstrap & JavaScript -->
+    <!-- Offline-Fallback -->
+    <div id="offline-fallback" class="offline-fallback" style="display: none;" role="alert">
+        <div class="offline-content">
+            <h2>Keine Verbindung</h2>
+            <p>Sie sind momentan offline. Einige Funktionen sind möglicherweise eingeschränkt.</p>
+            <button id="retry-connection" class="action-button">Verbindung wiederherstellen</button>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/enhancedUI.js"></script>
     <script src="js/configManager.js"></script>
     <script src="js/authManager.js"></script>
     <script src="js/websocket.js"></script>
@@ -470,6 +291,32 @@
     <script src="js/projectManager.js"></script>
     <script src="js/offlineManager.js"></script>
     <script src="js/main.js"></script>
-    <script src="js/enhancedUI.js"></script>
+
+
+    <!-- Service Worker Registrierung -->
+    <script>
+        // Aktuelles Jahr im Footer setzen
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+        
+        // Service Worker registrieren
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('ServiceWorker registration failed: ', error);
+                    });
+            });
+        }
+        
+        // Offline-Fallback-Button
+        document.getElementById('retry-connection').addEventListener('click', () => {
+            window.location.reload();
+        });
+    </script>
+
+
 </body>
 </html>

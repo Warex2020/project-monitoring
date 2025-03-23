@@ -1,21 +1,47 @@
 /**
  * websocket.js - Provides WebSocket functionality for live updates
- * Version 1.3.0
+ * Version 1.5.0 - ENHANCED WITH RECONNECT LOGIC AND SECURITY
  */
 
 // WebSocket connection
 let socket = null;
 let isConnected = false;
 let reconnectAttempts = 0;
-const maxReconnectAttempts = 5;
-const reconnectInterval = 5000; // 5 seconds
+let reconnectTimer = null;
+const maxReconnectAttempts = 10;
+const reconnectInterval = 3000; // 3 seconds initial interval
+const maxReconnectInterval = 30000; // Max 30 seconds between attempts
+let backoffFactor = 1.5; // Exponential backoff factor
+let heartbeatInterval = null;
+
+// Authentication state
+let authToken = null;
+let csrfToken = null;
 
 // Connection status indicators
 const connectionIndicator = document.getElementById('connection-indicator');
 const connectionText = document.getElementById('connection-text');
 
-// Establishes a WebSocket connection
+// Pending message queue for offline/disconnected mode
+let pendingMessages = [];
+const MAX_PENDING_MESSAGES = 100;
+
+// Custom event for connection status changes
+const connectionStatusEvent = new CustomEvent('websocketStatusChange', {
+    detail: { isConnected: false }
+});
+
+
+/**
+ * Establishes a WebSocket connection with reconnect logic
+ */
 function connectWebSocket() {
+    // Clear any existing reconnect timer
+    if (reconnectTimer !== null) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+
     // Show "Connecting..." status
     updateConnectionStatus('connecting');
     
@@ -28,20 +54,38 @@ function connectWebSocket() {
                     return window.serverConfig.port;
                 }
                 
-                // Use the current URL port or default 3420
+                // Use the current URL port or default to 3000
                 return window.location.port || 3420;
             } catch (error) {
                 console.error('Error determining server port:', error);
-                return 3420; // Fallback to configured port
+                return 3000; // Fallback to default port
             }
         };
         
-        // Create WebSocket connection to server
+        // Create WebSocket connection to server with proper protocol detection
         const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-        const host = window.location.hostname || 'localhost';
-        const port = getServerPort(); // Dynamically determine the port
+        // Erzwinge unsichere Verbindungen
+        //const protocol = 'ws://'; // Erzwinge unsichere Verbindung für Tests
+
+        const host = '10.66.66.5'; // oder '127.0.0.1' statt window.location.hostname
+        const port = window.location.port || 3420;  // Use the current port or default
         
         console.log(`Establishing WebSocket connection to ${protocol}${host}:${port}...`);
+
+        // Vor dem Erstellen der WebSocket-Verbindung
+        console.log('Verwende folgende WebSocket-Konfiguration:');
+        console.log('- Protokoll:', protocol);
+        console.log('- Host:', host);
+        console.log('- Port:', port);
+        console.log('- Komplette URL:', `${protocol}${host}:${port}`);
+        console.log('- Browser-URL:', window.location.href);
+        console.log('- Browser unterstützt WebSockets:', 'WebSocket' in window);
+        
+        // Close existing socket if any
+        if (socket) {
+            socket.close();
+        }
+        
         socket = new WebSocket(`${protocol}${host}:${port}`);
         
         // Event handler for successful connection
@@ -49,7 +93,14 @@ function connectWebSocket() {
             console.log('WebSocket connection established');
             isConnected = true;
             reconnectAttempts = 0;
+            backoffFactor = 1.5; // Reset backoff factor
             updateConnectionStatus('connected');
+            startHeartbeat();
+            
+            // Dispatch custom event
+            window.dispatchEvent(new CustomEvent('websocketStatusChange', {
+                detail: { isConnected: true }
+            }));
             
             // Send authentication status if available
             if (typeof AuthManager !== 'undefined' && typeof AuthManager.sendAuthStatus === 'function') {
@@ -57,12 +108,22 @@ function connectWebSocket() {
                     AuthManager.sendAuthStatus();
                 }, 500);
             }
+            
+            // Process pending messages
+            processPendingMessages();
         };
         
         // Event handler for incoming messages
         socket.onmessage = function(event) {
             try {
                 const message = JSON.parse(event.data);
+                
+                // Special handling for CSRF token
+                if (message.type === 'csrf_token') {
+                    csrfToken = message.data.token;
+                    console.log('CSRF token received');
+                    return;
+                }
                 
                 // Special handling for synchronization responses
                 if (message.type === 'sync_response' && window._syncCallback) {
@@ -73,6 +134,12 @@ function connectWebSocket() {
                 // Special handling for authentication responses
                 if (message.type === 'auth_status') {
                     console.log('Authentication status update:', message.data);
+                    
+                    // Store auth token if provided
+                    if (message.data.token) {
+                        authToken = message.data.token;
+                    }
+                    
                     return;
                 }
                 
@@ -91,39 +158,43 @@ function connectWebSocket() {
         // Event handler for connection errors
         socket.onerror = function(error) {
             console.error('WebSocket error:', error);
-            updateConnectionStatus('disconnected');
+            console.error('Network status:', navigator.onLine ? 'Online' : 'Offline');
         };
         
         // Event handler for closed connection
         socket.onclose = function(event) {
             console.log('WebSocket connection closed', event.code, event.reason);
             isConnected = false;
+            stopHeartbeat(); // Heartbeat stoppen
             
-            // Check if connection was closed due to access rights
-            if (event.code === 1008) {
-                showAccessDeniedMessage(event.reason);
-                updateConnectionStatus('denied');
-                return;
-            }
+            // Zusätzliche Debugging-Informationen
+            console.log('Close Event:', event);
+            console.log('Ready State:', socket.readyState);
             
-            updateConnectionStatus('disconnected');
-            
-            // Try to restore the connection
-            if (reconnectAttempts < maxReconnectAttempts) {
-                reconnectAttempts++;
-                console.log(`Trying to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`);
-                setTimeout(connectWebSocket, reconnectInterval);
-            } else {
-                console.error('Maximum number of reconnection attempts reached.');
-            }
+            handleReconnect(event);
         };
     } catch (error) {
         console.error('Error connecting to WebSocket:', error);
         updateConnectionStatus('disconnected');
+        
+        // Try again if possible
+        if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            
+            const backoffInterval = Math.min(
+                reconnectInterval * Math.pow(backoffFactor, reconnectAttempts - 1), 
+                maxReconnectInterval
+            );
+            
+            reconnectTimer = setTimeout(connectWebSocket, backoffInterval);
+        }
     }
 }
 
-// Handle error messages from the server
+/**
+ * Handle error messages from the server
+ * @param {Object} error - Error information
+ */
 function handleErrorMessage(error) {
     console.error('Server error:', error);
     
@@ -138,6 +209,11 @@ function handleErrorMessage(error) {
         }
     }
     
+    // Handle CSRF errors - refresh tokens 
+    if (error.code === 'CSRF_FAILED') {
+        refreshCSRFToken();
+    }
+    
     // Show notification if offline manager is available
     if (typeof OfflineManager !== 'undefined' && 
         typeof OfflineManager.showNotification === 'function') {
@@ -145,7 +221,32 @@ function handleErrorMessage(error) {
     }
 }
 
-// Displays a message when access is denied
+/**
+ * Refresh CSRF token from server
+ */
+async function refreshCSRFToken() {
+    try {
+        const response = await fetch('/api/auth-status', {
+            method: 'GET',
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.csrfToken) {
+                csrfToken = data.csrfToken;
+                console.log('CSRF token refreshed');
+            }
+        }
+    } catch (error) {
+        console.error('Error refreshing CSRF token:', error);
+    }
+}
+
+/**
+ * Displays a message when access is denied
+ * @param {string} reason - Reason message
+ */
 function showAccessDeniedMessage(reason) {
     // Create an overlay container for the message
     const overlay = document.createElement('div');
@@ -177,6 +278,7 @@ function showAccessDeniedMessage(reason) {
     
     const contactInfo = document.createElement('p');
     contactInfo.textContent = 'Please contact your administrator to request access.';
+    contactInfo.setAttribute('role', 'alert'); // Accessibility attribute
     
     // Add login option if public access is available
     if (typeof ConfigManager !== 'undefined' && 
@@ -190,6 +292,7 @@ function showAccessDeniedMessage(reason) {
         loginButton.className = 'submit-button';
         loginButton.textContent = 'Continue in Read-Only Mode';
         loginButton.style.marginTop = '20px';
+        loginButton.setAttribute('aria-label', 'Continue in read-only mode'); // Accessibility
         loginButton.onclick = () => {
             overlay.remove();
             document.querySelector('.container').style.display = 'block';
@@ -213,16 +316,125 @@ function showAccessDeniedMessage(reason) {
     document.querySelector('.container').style.display = 'none';
 }
 
-// Sends a message via WebSocket
-function sendWebSocketMessage(type, data) {
+/**
+ * Adds a message to the pending queue
+ * @param {string} type - Message type
+ * @param {Object} data - Message data
+ */
+function addPendingMessage(type, data) {
+    // Create message with timestamp
+    const message = {
+        type,
+        data,
+        timestamp: Date.now(),
+        id: Date.now() + Math.random().toString(36).substring(2, 9)
+    };
+    
+    // Add to queue
+    pendingMessages.push(message);
+    
+    // Limit queue size
+    if (pendingMessages.length > MAX_PENDING_MESSAGES) {
+        pendingMessages.shift(); // Remove oldest
+    }
+    
+    // Save in localStorage for persistence across page reloads
+    try {
+        localStorage.setItem('pendingWebSocketMessages', JSON.stringify(pendingMessages));
+    } catch (error) {
+        console.error('Error saving pending messages to localStorage:', error);
+    }
+    
+    return message.id;
+}
+
+/**
+ * Processes pending messages when connection is restored
+ */
+function processPendingMessages() {
+    if (!isConnected || pendingMessages.length === 0) return;
+    
+    console.log(`Processing ${pendingMessages.length} pending messages`);
+    
+    // Load any saved messages from localStorage
+    try {
+        const savedMessages = localStorage.getItem('pendingWebSocketMessages');
+        if (savedMessages) {
+            const parsedMessages = JSON.parse(savedMessages);
+            // Merge with current pending messages, avoiding duplicates
+            const currentIds = pendingMessages.map(m => m.id);
+            const newMessages = parsedMessages.filter(m => !currentIds.includes(m.id));
+            pendingMessages = [...pendingMessages, ...newMessages];
+        }
+    } catch (error) {
+        console.error('Error loading pending messages from localStorage:', error);
+    }
+    
+    // Sort by timestamp (oldest first)
+    pendingMessages.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Process in batches to avoid overwhelming the server
+    processBatch();
+}
+
+/**
+ * Processes a batch of pending messages
+ * @param {number} batchSize - Number of messages to process at once
+ */
+function processBatch(batchSize = 5) {
+    if (!isConnected || pendingMessages.length === 0) return;
+    
+    const batch = pendingMessages.slice(0, batchSize);
+    let successCount = 0;
+    
+    // Send messages
+    batch.forEach(message => {
+        const success = sendWebSocketMessage(message.type, message.data, false);
+        if (success) {
+            successCount++;
+            // Remove from queue
+            pendingMessages = pendingMessages.filter(m => m.id !== message.id);
+        }
+    });
+    
+    console.log(`Processed ${successCount}/${batch.length} pending messages`);
+    
+    // Update localStorage
+    try {
+        localStorage.setItem('pendingWebSocketMessages', JSON.stringify(pendingMessages));
+    } catch (error) {
+        console.error('Error saving pending messages to localStorage:', error);
+    }
+    
+    // Continue with next batch if there are more messages and we successfully sent some
+    if (pendingMessages.length > 0 && successCount > 0) {
+        setTimeout(() => processBatch(batchSize), 1000);
+    }
+}
+
+/**
+ * Sends a message via WebSocket
+ * @param {string} type - Message type
+ * @param {Object} data - Message data
+ * @param {boolean} queueIfOffline - Whether to queue the message if offline
+ * @returns {boolean} - Whether the message was sent successfully
+ */
+function sendWebSocketMessage(type, data, queueIfOffline = true) {
     // Check offline mode
     if (typeof OfflineManager !== 'undefined' && OfflineManager.isOffline()) {
         console.log('Offline mode: Message will be buffered', type);
         return OfflineManager.addOfflineChange(type, data);
     }
     
+    // If not connected, add to pending messages if queueIfOffline is true
     if (!socket || socket.readyState !== WebSocket.OPEN) {
         console.warn('WebSocket not connected. Message cannot be sent.');
+        
+        // Queue for later if requested
+        if (queueIfOffline) {
+            console.log(`Queuing message for later: ${type}`);
+            addPendingMessage(type, data);
+        }
         
         // Buffer message in offline mode if available
         if (typeof OfflineManager !== 'undefined') {
@@ -265,11 +477,26 @@ function sendWebSocketMessage(type, data) {
         timestamp: Date.now()
     };
     
+    // Add CSRF token for write operations if available
+    if (isWriteOperation && csrfToken) {
+        message.csrfToken = csrfToken;
+    }
+    
+    // Add auth token if available
+    if (authToken) {
+        message.authToken = authToken;
+    }
+    
     try {
         socket.send(JSON.stringify(message));
         return true;
     } catch (error) {
         console.error('Error sending WebSocket message:', error);
+        
+        // Queue for later if requested
+        if (queueIfOffline) {
+            addPendingMessage(type, data);
+        }
         
         // Buffer message in offline mode if available
         if (typeof OfflineManager !== 'undefined') {
@@ -280,7 +507,10 @@ function sendWebSocketMessage(type, data) {
     }
 }
 
-// Processes incoming WebSocket messages
+/**
+ * Processes incoming WebSocket messages
+ * @param {Object} message - Message to process
+ */
 function handleWebSocketMessage(message) {
     if (!message || !message.type || !message.data) {
         console.error('Invalid WebSocket message:', message);
@@ -291,27 +521,39 @@ function handleWebSocketMessage(message) {
     
     switch (message.type) {
         case 'add_project':
-            ProjectManager.addProject(message.data);
+            if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.addProject === 'function') {
+                ProjectManager.addProject(message.data);
+            }
             break;
             
         case 'update_project':
-            ProjectManager.updateProject(message.data);
+            if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.updateProject === 'function') {
+                ProjectManager.updateProject(message.data);
+            }
             break;
             
         case 'delete_project':
-            ProjectManager.deleteProject(message.data.id);
+            if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.deleteProject === 'function') {
+                ProjectManager.deleteProject(message.data.id);
+            }
             break;
             
         case 'add_step':
-            TodoManager.addStep(message.data.projectId, message.data);
+            if (typeof TodoManager !== 'undefined' && typeof TodoManager.addStep === 'function') {
+                TodoManager.addStep(message.data.projectId, message.data);
+            }
             break;
             
         case 'update_step':
-            TodoManager.updateStep(message.data.projectId, message.data);
+            if (typeof TodoManager !== 'undefined' && typeof TodoManager.updateStep === 'function') {
+                TodoManager.updateStep(message.data.projectId, message.data);
+            }
             break;
             
         case 'delete_step':
-            TodoManager.deleteStep(message.data.projectId, message.data.id);
+            if (typeof TodoManager !== 'undefined' && typeof TodoManager.deleteStep === 'function') {
+                TodoManager.deleteStep(message.data.projectId, message.data.id);
+            }
             break;
             
         case 'sync_projects':
@@ -321,6 +563,11 @@ function handleWebSocketMessage(message) {
             
         default:
             console.warn('Unknown message type:', message.type);
+            
+            // Dispatch custom event for plugins to handle
+            window.dispatchEvent(new CustomEvent('websocketMessage', {
+                detail: { message }
+            }));
     }
     
     // Update UI based on current authentication status
@@ -329,36 +576,151 @@ function handleWebSocketMessage(message) {
     }
 }
 
-// Processes project synchronization data
+/**
+ * Processes project synchronization data
+ * @param {Object} projects - Projects to sync
+ */
 function handleProjectSync(projects) {
     if (!projects) return;
     
-    Object.values(projects).forEach(project => {
-        ProjectManager.updateProject(project);
-    });
-    
-    console.log('Projects synchronized:', Object.keys(projects).length);
+    if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.updateProject === 'function') {
+        Object.values(projects).forEach(project => {
+            ProjectManager.updateProject(project);
+        });
+        
+        console.log('Projects synchronized:', Object.keys(projects).length);
+    }
 }
 
-// Updates the connection status display
+/**
+ * Updates the connection status display
+ * @param {string} status - Connection status
+ */
 function updateConnectionStatus(status) {
-    // Remove all previous classes
+    if (!connectionIndicator || !connectionText) return;
+
+    // Entferne alle vorherigen Klassen
     connectionIndicator.className = '';
-    
+
     switch (status) {
         case 'connected':
             connectionIndicator.classList.add('connected');
-            connectionText.textContent = 'Connected';
+            connectionText.textContent = 'Verbunden';
             break;
-            
+
         case 'disconnected':
             connectionIndicator.classList.add('disconnected');
-            connectionText.textContent = 'Disconnected';
+            connectionText.textContent = 'Verbindung verloren';
             break;
-            
+
         case 'connecting':
             connectionIndicator.classList.add('connecting');
-            connectionText.textContent = 'Connecting...';
+            connectionText.textContent = 'Verbindung wird hergestellt...';
+            break;
+
+        case 'offline':
+            connectionIndicator.classList.add('offline');
+            connectionText.textContent = 'Offline-Modus';
             break;
     }
+
+    // Verhindere UI-Zucken durch sanfte Übergänge
+    connectionIndicator.style.transition = 'opacity 0.5s ease';
 }
+
+/**
+ * Check if WebSocket is connected
+ * @returns {boolean} - Connection status
+ */
+function isWebSocketConnected() {
+    return isConnected && socket && socket.readyState === WebSocket.OPEN;
+}
+
+// Startet den Heartbeat
+function startHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+    }
+    heartbeatInterval = setInterval(() => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'ping' }));
+            console.log('Heartbeat sent');
+        }
+    }, 30000); // Alle 30 Sekunden
+}
+
+// Stoppt den Heartbeat
+function stopHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
+}
+
+function handleReconnect(event) {
+    if (reconnectAttempts < maxReconnectAttempts) {
+        reconnectAttempts++;
+        
+        // Berechne Backoff-Intervall mit Jitter
+        const jitter = Math.random() * 0.3 + 0.85; // Zufällig zwischen 0.85 und 1.15
+        const backoffInterval = Math.min(
+            reconnectInterval * Math.pow(backoffFactor, reconnectAttempts - 1) * jitter, 
+            maxReconnectInterval
+        );
+        
+        console.log(`Reconnecting in ${Math.round(backoffInterval / 1000)} seconds...`);
+        
+        reconnectTimer = setTimeout(connectWebSocket, backoffInterval);
+    } else {
+        console.error('Maximum number of reconnection attempts reached.');
+        updateConnectionStatus('offline');
+    }
+}
+
+function enterOfflineMode() {
+    console.log('Entering offline mode');
+    updateConnectionStatus('offline');
+    // Zeige eine Benachrichtigung oder sperre bestimmte Funktionen
+}
+
+// Initialize connection on page load
+window.addEventListener('load', () => {
+    // Try to load pending messages from localStorage
+    try {
+        const savedMessages = localStorage.getItem('pendingWebSocketMessages');
+        if (savedMessages) {
+            pendingMessages = JSON.parse(savedMessages);
+            console.log(`Loaded ${pendingMessages.length} pending messages from storage`);
+        }
+    } catch (error) {
+        console.error('Error loading pending messages from localStorage:', error);
+    }
+    
+    // Get CSRF token from meta tag if available
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (csrfMeta) {
+        csrfToken = csrfMeta.getAttribute('content');
+    }
+    
+    // Connect to server
+    setTimeout(connectWebSocket, 500);
+});
+
+// Handle page visibility change to reconnect when user returns
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        if (!isConnected && socket && socket.readyState !== WebSocket.CONNECTING) {
+            console.log('Page visible again, attempting to reconnect...');
+            reconnectAttempts = 0; // Reset attempts
+            connectWebSocket();
+        }
+    }
+});
+
+// Expose functions globally
+window.connectWebSocket = connectWebSocket;
+window.sendWebSocketMessage = sendWebSocketMessage;
+window.isWebSocketConnected = isWebSocketConnected;
+
+
+

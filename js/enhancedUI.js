@@ -458,20 +458,32 @@ const EnhancedUI = (() => {
         if (!projectsContainer) return;
         
         const projects = projectsContainer.querySelectorAll('.project-card');
+        let visibleCount = 0;
         
         projects.forEach(project => {
-            if (!currentFilter || project.dataset.status === currentFilter) {
-                // First check if project is completed and hideCompleted is active
-                if (hideCompleted && project.dataset.status === 'completed') {
-                    fadeOutElement(project);
-                } else {
+            // Determine if project should be visible based on filter and completed status
+            const matchesFilter = !currentFilter || project.dataset.status === currentFilter;
+            const isCompleted = project.dataset.status === 'completed';
+            const shouldBeVisible = matchesFilter && !(hideCompleted && isCompleted);
+            
+            if (shouldBeVisible) {
+                // If project is currently hidden and should be visible, fade it in
+                if (project.style.display === 'none' || project.style.opacity === '0') {
                     fadeInElement(project);
                 }
+                visibleCount++;
             } else {
+                // If project is currently visible and should be hidden, fade it out
                 fadeOutElement(project);
             }
         });
+        
+        // Update layout after all animations complete
+        setTimeout(() => {
+            triggerGridReflow();
+        }, 1200);
     };
+    
     
     // Sorts projects based on current sort
     const applySort = () => {
@@ -538,6 +550,11 @@ const EnhancedUI = (() => {
                 fadeInElement(project);
             }
         });
+        
+        // Trigger grid reflow after animations complete
+        setTimeout(() => {
+            triggerGridReflow();
+        }, 1200);
     };
     
     // Toggles the Gantt view
@@ -815,6 +832,10 @@ const EnhancedUI = (() => {
             }, 50);
         }, 300);
     };
+
+    const applyCurrentSort = () => {
+        applySort();
+    };    
     
     // Fades in an element smoothly
     const fadeInElement = (element) => {
@@ -862,7 +883,8 @@ const EnhancedUI = (() => {
     
     // Public API
     return {
-        init
+        init,
+        applyCurrentSort
     };
 })();
 
@@ -872,3 +894,4 @@ document.addEventListener('DOMContentLoaded', () => {
         EnhancedUI.init();
     }, 1000); // Wait for other modules to initialize
 });
+

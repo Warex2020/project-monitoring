@@ -173,3 +173,7 @@
         opacity: 0;
     }
 }
+
+.sync-button {
+    margin-left: 20px; /* Von 10px auf 20px erhöhen */
+}

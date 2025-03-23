@@ -2,6 +2,60 @@
 
 Alle wichtigen Änderungen am IT-Projekt-Monitoring-Dashboard werden in dieser Datei dokumentiert.
 
+## [1.4.0] - 2025-04-15
+
+### Hinzugefügt
+- Verbesserte Benutzeroberfläche (UX)
+  - Moderne Projekt-Karten mit dynamischen Schatten- und Hover-Effekten
+  - Sanftere Übergangsanimationen bei Filterfunktionen
+  - Flüssigeres Ein- und Ausblenden mit mehrphasigen Animationen
+  - Tastaturkürzel für häufig verwendete Aktionen
+  - Leerer-Zustand-Anzeige, wenn keine Projekte den Filterkriterien entsprechen
+- Umfassendes Benutzerverwaltungssystem
+  - Admin-Dashboard für Benutzerkonten
+  - Vollständige CRUD-Operationen für Benutzer
+  - Rollenbasierte Zugriffssteuerung mit hierarchischen Berechtigungen
+  - Benutzerprofile mit anpassbaren Einstellungen
+  - Aktivitätsprotokollierung für Audit-Zwecke
+  - Passwort-Richtlinien und Zurücksetzungsmechanismen
+- LDAPS-Integration
+  - Sichere Verbindung zu Verzeichnisdiensten über TLS/SSL
+  - Authentifizierung mit Unternehmenszugangsdaten
+  - Automatische Benutzersynchronisierung aus dem Verzeichnis
+  - Zuordnung von LDAP-Gruppen zu Anwendungsrollen
+  - Konfigurationsoberfläche für LDAP-Einstellungen
+  - Attribut-Mapping und Synchronisierungsplanung
+  - Hybride Authentifizierung mit lokalen Fallback-Optionen
+
+### Verbessert
+- Erweiterte Animation und visuelle Effekte
+  - Kaskadierte Animationen für Kartenübergänge
+  - Sanftere Ein- und Ausblendungen bei Filteraktionen
+  - Verbesserte Hover-Effekte mit natürlicheren Bewegungen
+  - Ripple-Effekte für Schaltflächen und Shimmer-Effekte für Fortschrittsbalken
+  - Optimierte Übergänge bei Erweiterung der Projektschritte
+- Responsives Layout und Grid-System
+  - Verbesserte Bootstrap-Integration
+  - Automatisches Layout-Neuberechnung nach Filteränderungen
+  - Optimierte Darstellung auf verschiedenen Bildschirmgrößen
+  - Verbesserte Touch-Steuerung für mobile Geräte
+- Team-Anzeige und Benutzerpräsentation
+  - Anzeige von Benutzerinitialen in Team-Avataren
+  - Tooltip-Informationen für Teammitglieder
+  - Verbessertes visuelles Feedback bei Benutzeraktionen
+
+### Geändert
+- Überarbeitete Filtermechanismen mit animierten Übergängen
+- Erweiterte Benutzerprofil- und Authentifizierungsflüsse
+- Verbesserte Darstellung des Verbindungsstatus und der Authentifizierungsinformationen
+- Neue Layout-Struktur für bessere Skalierbarkeit
+
+### Behoben
+- Problem mit dem Layout beim Ausblenden abgeschlossener Projekte
+- Fehler bei der Animation beim Filtern von Projekten
+- Inkonsistenzen bei der Anzeige von Teammitgliedern
+- Verzögerungen bei der Aktualisierung des Layouts nach Änderungen
+
 ## [1.3.0] - 2025-03-23
 
 ### Hinzugefügt

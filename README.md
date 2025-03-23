@@ -57,7 +57,7 @@ npm install
 npm start
 ```
 
-6. Im Browser öffnen: `http://localhost:3000`
+6. Im Browser öffnen: `http://localhost:3420`
 
 ## Konfiguration
 

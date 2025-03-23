@@ -42,7 +42,7 @@ Dieses Dokument bietet Hilfestellung bei häufigen Problemen, die bei der Instal
 1. **Anderen Port verwenden:** Bearbeite die `docker-compose.yml` und ändere den Port:
    ```yaml
    ports:
-     - "3001:3000"
+     - "3420:3000"
    ```
 
 2. **Bestehende Anwendung auf Port 3000 beenden:**

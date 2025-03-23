@@ -4,7 +4,8 @@
     "::1",
     "localhost",
     "192.168.1.0/24",
-    "10.0.0.0/8"
+    "10.0.0.0/8",
+    "172.0.0.0/8"  
   ],
   "server": {
     "port": 3420,
@@ -15,12 +16,12 @@
     "subtitle": "Dashboard für IT-Abteilung"
   },
   "security": {
-    "mode": "private",
-    "requireLoginForChanges": true,
+    "mode": "public", 
+    "requireLoginForChanges": false,
     "users": [
       {
         "username": "admin",
-        "password": "5f4dcc3b5aa765d61d8327deb882cf99", 
+        "password": "5f4dcc3b5aa765d61d8327deb882cf99",
         "role": "admin"
       },
       {
@@ -28,7 +29,8 @@
         "password": "5f4dcc3b5aa765d61d8327deb882cf99",
         "role": "user"
       }
-    ]
+    ],
+    "sessionSecret": "955afcc05c29a28571c874206a3a37da2685989db2d47978030ab0a586b3e6f7"
   },
   "projectSettings": {
     "defaultDeadlineDays": 30,

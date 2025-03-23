@@ -1,9 +1,10 @@
 /**
  * authMiddleware.js - Authentication and authorization middleware
- * Version 1.4.0
+ * Version 1.5.0 - SECURITY ENHANCED
  */
 
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt'); // Ersetzt crypto für sicheres Hashing
 const User = require('../models/user');
 const LDAPService = require('./ldapService');
 const fileManager = require('./fileManager');
@@ -18,8 +19,15 @@ let config = {
     authenticatedRoutes: ['/api/projects', '/api/users'],
     openRoutes: ['/api/auth/login', '/api/auth/logout', '/api/health'],
     adminRoutes: ['/api/admin', '/api/users'],
-    managerRoutes: ['/api/projects/all']
+    managerRoutes: ['/api/projects/all'],
+    saltRounds: 12, // Für bcrypt
+    rateLimitWindow: 15 * 60 * 1000, // 15 Minuten
+    rateLimitMaxAttempts: 5,
+    csrfProtection: true
 };
+
+// Login Versuchszähler für Rate Limiting
+const loginAttempts = new Map();
 
 // Load configuration
 async function loadConfig() {
@@ -66,6 +74,16 @@ async function authenticate(req, res, next) {
             // Verify token
             const decoded = jwt.verify(token, config.secretKey);
             
+            // Check for token expiration (belt and suspenders approach)
+            const now = Math.floor(Date.now() / 1000);
+            if (decoded.exp && decoded.exp < now) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Token expired',
+                    expired: true
+                });
+            }
+            
             // Get user from database
             const user = await User.findByUsername(decoded.username);
             
@@ -83,6 +101,15 @@ async function authenticate(req, res, next) {
                 });
             }
             
+            // Check token version (Kann für Token-Invalidierung verwendet werden)
+            if (user.tokenVersion && decoded.tokenVersion !== user.tokenVersion) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Token invalidated',
+                    expired: true
+                });
+            }
+            
             // Attach user to request
             req.user = user;
             
@@ -97,10 +124,14 @@ async function authenticate(req, res, next) {
                 });
             }
             
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid token'
-            });
+            if (error.name === 'JsonWebTokenError') {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Invalid token'
+                });
+            }
+            
+            throw error; // Re-throw unexpected errors
         }
     } catch (error) {
         console.error('Authentication error:', error);
@@ -209,6 +240,71 @@ function requireManager(req, res, next) {
 }
 
 /**
+ * Check if the IP is allowed to make login attempts
+ * @param {string} ip - Client IP address
+ * @returns {boolean} - Whether login is allowed
+ */
+function checkRateLimit(ip) {
+    const now = Date.now();
+    const windowStart = now - config.rateLimitWindow;
+    
+    // Clean up old entries
+    for (const [key, data] of loginAttempts.entries()) {
+        if (data.timestamp < windowStart) {
+            loginAttempts.delete(key);
+        }
+    }
+    
+    // Check current IP
+    if (!loginAttempts.has(ip)) {
+        loginAttempts.set(ip, { count: 0, timestamp: now });
+        return true;
+    }
+    
+    const attempt = loginAttempts.get(ip);
+    
+    // Reset if outside window
+    if (attempt.timestamp < windowStart) {
+        loginAttempts.set(ip, { count: 0, timestamp: now });
+        return true;
+    }
+    
+    // Check if too many attempts
+    if (attempt.count >= config.rateLimitMaxAttempts) {
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Record a login attempt
+ * @param {string} ip - Client IP address
+ * @param {boolean} success - Whether login was successful
+ */
+function recordLoginAttempt(ip, success) {
+    const now = Date.now();
+    
+    if (!loginAttempts.has(ip)) {
+        loginAttempts.set(ip, { count: success ? 0 : 1, timestamp: now });
+        return;
+    }
+    
+    const attempt = loginAttempts.get(ip);
+    
+    if (success) {
+        // Reset on successful login
+        loginAttempts.set(ip, { count: 0, timestamp: now });
+    } else {
+        // Increment on failed login
+        loginAttempts.set(ip, { 
+            count: attempt.count + 1, 
+            timestamp: now 
+        });
+    }
+}
+
+/**
  * Login handler
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -216,11 +312,20 @@ function requireManager(req, res, next) {
 async function login(req, res) {
     try {
         const { username, password } = req.body;
+        const clientIp = req.ip || req.connection.remoteAddress;
         
         if (!username || !password) {
             return res.status(400).json({
                 success: false,
                 message: 'Username and password are required'
+            });
+        }
+        
+        // Check rate limiting
+        if (!checkRateLimit(clientIp)) {
+            return res.status(429).json({
+                success: false,
+                message: 'Too many login attempts. Please try again later.'
             });
         }
         
@@ -237,11 +342,17 @@ async function login(req, res) {
         }
         
         if (!user) {
+            // Record failed attempt
+            recordLoginAttempt(clientIp, false);
+            
             return res.status(401).json({
                 success: false,
                 message: 'Invalid username or password'
             });
         }
+        
+        // Record successful attempt
+        recordLoginAttempt(clientIp, true);
         
         // Generate token
         const token = generateToken(user);
@@ -254,6 +365,9 @@ async function login(req, res) {
             sameSite: 'strict',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
+        
+        // Update last login
+        await User.recordLogin(user.username);
         
         // Return user info and refresh token
         res.status(200).json({
@@ -302,7 +416,8 @@ function generateToken(user) {
     return jwt.sign(
         {
             username: user.username,
-            roles: user.roles
+            roles: user.roles,
+            tokenVersion: user.tokenVersion || 1
         },
         config.secretKey,
         {
@@ -320,7 +435,8 @@ function generateRefreshToken(user) {
     return jwt.sign(
         {
             username: user.username,
-            tokenType: 'refresh'
+            tokenType: 'refresh',
+            tokenVersion: user.tokenVersion || 1
         },
         config.secretKey,
         {
@@ -371,6 +487,15 @@ async function refreshToken(req, res) {
                 return res.status(403).json({
                     success: false,
                     message: 'User account is inactive'
+                });
+            }
+            
+            // Check token version
+            if (user.tokenVersion && decoded.tokenVersion !== user.tokenVersion) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Token invalidated',
+                    expired: true
                 });
             }
             
@@ -484,6 +609,36 @@ function isManagerRoute(path) {
     });
 }
 
+/**
+ * CSRF Protection middleware
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next function
+ */
+function csrfProtection(req, res, next) {
+    // Skip for GET, HEAD, OPTIONS
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return next();
+    }
+    
+    // Skip if CSRF protection is disabled
+    if (!config.csrfProtection) {
+        return next();
+    }
+    
+    const csrfToken = req.headers['x-csrf-token'] || req.body._csrf;
+    const storedToken = req.session?.csrfToken;
+    
+    if (!csrfToken || !storedToken || csrfToken !== storedToken) {
+        return res.status(403).json({
+            success: false,
+            message: 'CSRF token validation failed'
+        });
+    }
+    
+    next();
+}
+
 module.exports = {
     authenticate,
     authorize,
@@ -493,5 +648,6 @@ module.exports = {
     logout,
     refreshToken,
     generateToken,
+    csrfProtection,
     loadConfig
 };

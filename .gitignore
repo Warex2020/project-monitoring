@@ -13,6 +13,11 @@ yarn.lock
 .env.test.local
 .env.production.local
 
+# Session-Dateien
+sessions/
+*.session
+sessions.json
+
 # Logs
 logs/
 *.log
@@ -22,6 +27,9 @@ tmp/
 temp/
 .DS_Store
 Thumbs.db
+
+# Backup-Dateien
+config/backups/
 
 # Docker
 .dockerignore

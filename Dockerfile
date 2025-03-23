@@ -25,7 +25,7 @@ COPY . .
 # Erstelle leere config-Verzeichnisse, falls nicht vorhanden
 RUN mkdir -p config
 
-EXPOSE 3000
+EXPOSE 3420
 
 # Prüfe, ob alle Module korrekt installiert wurden
 RUN node -e "require('express'); require('ws'); require('ip'); console.log('Module verfügbar')"
