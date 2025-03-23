@@ -16,8 +16,8 @@
     "subtitle": "Dashboard für IT-Abteilung"
   },
   "security": {
-    "mode": "private", 
-    "requireLoginForChanges": true,
+    "mode": "public", 
+    "requireLoginForChanges": false,
     "users": [
       {
         "username": "admin",

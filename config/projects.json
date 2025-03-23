@@ -170,12 +170,11 @@
     "id": "p004",
     "title": "Helpdesk System Upgrade-> Update",
     "status": "delayed",
-    "progress": 40,
+    "progress": 10,
     "nextStep": "Data migration",
     "team": [
       "Robert",
-      "Elena",
-      "Test"
+      "Elena"
     ],
     "deadline": "2025-03-10",
     "steps": [
@@ -184,24 +183,35 @@
         "projectId": "p004",
         "title": "Requirements gathering",
         "description": "Collect requirements from helpdesk team and users",
-        "completed": false,
-        "updatedAt": "2025-03-23T19:15:20.365Z"
+        "completed": true,
+        "updatedAt": "2025-03-23T21:14:21.354Z"
       },
       {
         "id": "s020",
         "projectId": "p004",
         "title": "System customization",
         "description": "Customize the system to match company workflows",
-        "completed": false,
-        "updatedAt": "2025-03-23T19:26:29.492Z"
+        "completed": true,
+        "updatedAt": "2025-03-23T21:14:25.022Z"
+      },
+      {
+        "id": "m8lkwo1p79dal",
+        "projectId": "p004",
+        "title": "Testen",
+        "description": "",
+        "completed": true,
+        "priority": "medium",
+        "updatedAt": "2025-03-23T21:14:26.738Z",
+        "createdAt": "2025-03-23T11:52:54.973Z",
+        "tags": []
       },
       {
         "id": "s019",
         "projectId": "p004",
         "title": "System evaluation",
         "description": "Evaluate available helpdesk solutions",
-        "completed": false,
-        "updatedAt": "2025-03-23T19:26:31.202Z"
+        "completed": true,
+        "updatedAt": "2025-03-23T21:14:27.820Z"
       },
       {
         "id": "s021",
@@ -209,32 +219,35 @@
         "title": "Data migration",
         "description": "Migrate existing tickets and knowledge base",
         "completed": false,
-        "updatedAt": "2025-03-23T19:10:07.017Z"
+        "updatedAt": "2025-03-23T21:14:13.079Z"
       },
       {
         "id": "s022",
         "projectId": "p004",
         "title": "User training",
         "description": "Train helpdesk staff on new system",
-        "completed": false
+        "completed": false,
+        "updatedAt": "2025-03-23T21:14:14.860Z"
+      },
+      {
+        "id": "m8m4vfy18ocrv",
+        "projectId": "p004",
+        "title": "müll",
+        "description": "jkhjhjkhbjk",
+        "completed": false,
+        "dueDate": "2025-03-24",
+        "priority": "high",
+        "assignedTo": "jessi",
+        "updatedAt": "2025-03-23T21:14:15.462Z",
+        "createdAt": "2025-03-23T21:11:50.241Z"
       },
       {
         "id": "s023",
         "projectId": "p004",
         "title": "Go-live",
         "description": "Launch new helpdesk system",
-        "completed": false
-      },
-      {
-        "id": "m8lkwo1p79dal",
-        "projectId": "p004",
-        "title": "Testen",
-        "description": "",
         "completed": false,
-        "priority": "medium",
-        "updatedAt": "2025-03-23T11:52:54.973Z",
-        "createdAt": "2025-03-23T11:52:54.973Z",
-        "tags": []
+        "updatedAt": "2025-03-23T21:14:16.538Z"
       },
       {
         "id": "m8linfimb2wjk",
@@ -242,12 +255,12 @@
         "title": "bjgvghfvhj",
         "description": "",
         "completed": false,
-        "updatedAt": "2025-03-23T10:49:44.784Z",
+        "updatedAt": "2025-03-23T21:14:17.193Z",
         "createdAt": "2025-03-23T10:49:44.784Z",
         "tags": []
       }
     ],
-    "updatedAt": "2025-03-23T20:27:27.838Z"
+    "updatedAt": "2025-03-23T21:14:36.118Z"
   },
   "p005": {
     "id": "p005",

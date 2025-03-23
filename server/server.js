@@ -934,6 +934,27 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
 
+// Überprüfung auf Schreibrechte beim Serverstart
+const checkWriteAccess = async (directory) => {
+    try {
+        await fs.access(directory, fs.constants.W_OK);
+        console.log(`Schreibzugriff auf '${directory}' vorhanden.`);
+    } catch (err) {
+        console.error(`Kein Schreibzugriff auf '${directory}'. Server wird beendet.`);
+        process.exit(1);
+    }
+};
+
+// Pfad zum Sessions-Verzeichnis prüfen und ggf. erstellen
+const sessionDir = path.join(__dirname, 'sessions');
+fs.mkdir(sessionDir, { recursive: true })
+    .then(() => checkWriteAccess(sessionDir))
+    .catch(err => {
+        console.error(`Fehler beim Erstellen des Sessions-Verzeichnisses: ${err}`);
+        process.exit(1);
+    });
+
+
 // Create HTTP server with Express
 const server = http.createServer(app);
 
@@ -996,44 +1017,24 @@ wss.on('connection', async (ws, req) => {
     if (cookies) {
         const sessionCookie = cookies.split(';').find(c => c.trim().startsWith('projectMonitoringSessionId='));
         if (sessionCookie) {
-            sessionId = sessionCookie.split('=')[1].trim();
-            console.log('Found session ID in WebSocket request:', sessionId);
-            
-            // Attempt to load the session directly from the file store
+            const sessionId = decodeURIComponent(sessionCookie.split('=')[1].trim());
+    
             try {
-                const sessionDir = './sessions';
-                const sessionFiles = fs.readdirSync(sessionDir);
-                
-                // Search for the session file
-                for (const file of sessionFiles) {
-                    if (file.includes(sessionId)) {
-                        const sessionData = fs.readFileSync(path.join(sessionDir, file), 'utf8');
-                        try {
-                            const sessionJson = JSON.parse(sessionData);
-                            if (sessionJson.authenticated) {
-                                console.log('Found authenticated session for:', sessionJson.username);
-                                
-                                // Mark session as authenticated
-                                connections.set(ws, { 
-                                    id: connectionId,
-                                    ip: clientIp,
-                                    authenticated: true,
-                                    username: sessionJson.username,
-                                    role: sessionJson.role || 'user',
-                                    connectedAt: new Date(),
-                                    lastActivity: new Date(),
-                                    sessionId: sessionId,
-                                    csrfToken: csrfToken
-                                });
-                                break;
-                            }
-                        } catch (e) {
-                            console.error('Error parsing session data:', e);
-                        }
-                    }
+                const sessionPath = path.join(__dirname, 'sessions', sessionId + '.json');
+                const sessionData = await fs.readFile(sessionPath, 'utf8');
+                const sessionJson = JSON.parse(sessionData);
+    
+                if (sessionJson.authenticated) {
+                    connections.set(ws, { 
+                        authenticated: true,
+                        username: sessionJson.username,
+                        role: sessionJson.role || 'user',
+                        connectedAt: new Date(),
+                        sessionId
+                    });
                 }
             } catch (err) {
-                console.error('Error reading session files:', err);
+                console.error('Fehler beim Lesen der Session-Datei:', err);
             }
         }
     }
