@@ -708,43 +708,72 @@ const ProjectManager = (() => {
     /**
      * Aktualisiert ein vorhandenes Projekt
      * @param {Object} updatedProject - Aktualisierte Projektdaten
-     * @returns {Object|null} - Das aktualisierte Projekt oder null bei Fehler
      */
-        const updateProject = (updatedProject) => {
-            if (!updatedProject || !updatedProject.id) return;
-            
-            // Aktualisiere Projekt im Speicher
-            projects[updatedProject.id] = updatedProject;
-            
-            // Prüfe, ob Element existiert und expanded-Status speichern
-            const projectElement = document.querySelector(`.project-card[data-project="${updatedProject.id}"]`);
-            const wasExpanded = projectElement ? projectElement.classList.contains('expanded') : false;
-            
-            if (projectElement) {
-                // Entferne altes Element
-                projectElement.remove();
-            }
-            
-            // Rendere aktualisiertes Projekt
+    const updateProject = (updatedProject) => {
+        if (!updatedProject || !updatedProject.id) return;
+        
+        // Aktualisiere Projekt im Speicher
+        projects[updatedProject.id] = updatedProject;
+        
+        // Prüfe, ob Element existiert und expanded-Status speichern
+        const projectElement = document.querySelector(`.project-card[data-project="${updatedProject.id}"]`);
+        const wasExpanded = projectElement ? projectElement.classList.contains('expanded') : false;
+        
+        if (projectElement) {
+            // Nur dieses spezifische Projekt aktualisieren, nicht alle neu rendern
+            renderSingleProject(updatedProject, projectElement, wasExpanded);
+        } else {
+            // Neues Projekt, einfach hinzufügen
             renderProject(updatedProject);
+        }
+    };
 
-            if (typeof EnhancedUI !== 'undefined' && typeof EnhancedUI.applyCurrentSort === 'function') {
-                EnhancedUI.applyCurrentSort();
-            }
-            
-            // Wenn es zuvor expandiert war, wieder expandieren
-            if (wasExpanded) {
-                const newElement = document.querySelector(`.project-card[data-project="${updatedProject.id}"]`);
-                if (newElement) {
-                    newElement.classList.add('expanded');
-                    const stepsContainer = newElement.querySelector('.project-steps');
-                    stepsContainer.classList.add('active');
-                    stepsContainer.style.maxHeight = stepsContainer.scrollHeight + 40 + 'px';
-                    stepsContainer.style.padding = '20px';
-                    stepsContainer.style.marginTop = '25px';
-                }
-            }
-        };
+    /**
+     * Aktualisiert ein einzelnes Projektelement
+     * @param {Object} project - Projektdaten
+     * @param {HTMLElement} element - Bestehende Projektkarte
+     * @param {boolean} wasExpanded - War die Projektkarte expandiert
+     */
+    const renderSingleProject = (project, element, wasExpanded) => {
+        // Nur die spezifischen Teile der Projektkarte aktualisieren
+        element.querySelector('.project-title').textContent = project.title;
+        
+        // Status aktualisieren
+        const statusElement = element.querySelector('.project-status');
+        statusElement.textContent = getStatusText(project.status);
+        statusElement.className = 'project-status';
+        statusElement.classList.add(`status-${project.status}`);
+        
+        // Update dataset für Filterung
+        element.dataset.status = project.status;
+        
+        // Fortschritt aktualisieren  
+        const progressValue = element.querySelector('.progress-value');
+        const progressPercentage = element.querySelector('.progress-percentage');
+        progressPercentage.textContent = `${project.progress}%`;
+        progressValue.style.width = `${project.progress}%`;
+        
+        // Nächsten Schritt aktualisieren
+        element.querySelector('.next-step-description').textContent = 
+            project.nextStep || 'Kein nächster Schritt definiert';
+        
+        // Deadline aktualisieren
+        const deadlineText = element.querySelector('.deadline-text');
+        deadlineText.textContent = formatDeadline(project.deadline, project.status);
+        
+        // Schritte aktualisieren
+        const stepsContainer = element.querySelector('.project-steps');
+        renderProjectSteps(element, project);
+        
+        // Expanded-Status wiederherstellen
+        if (wasExpanded) {
+            element.classList.add('expanded');
+            stepsContainer.classList.add('active');
+            stepsContainer.style.maxHeight = stepsContainer.scrollHeight + 40 + 'px';
+            stepsContainer.style.padding = '20px';
+            stepsContainer.style.marginTop = '25px';
+        }
+    };
 
     /**
      * Fügt ein neues Projekt hinzu

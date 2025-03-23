@@ -299,3 +299,10 @@ h1, h2, h3, h4 {
     background-color: var(--button-hover);
     transform: translateY(-2px);
 }
+
+/* project-sort option soll für darkmode eine andere hintergrund farbe haben */
+.project-sort {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}

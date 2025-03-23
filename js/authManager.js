@@ -40,12 +40,15 @@ const AuthManager = (() => {
     // Send authentication status to WebSocket server
     const sendAuthStatus = () => {
         if (typeof socket !== 'undefined' && socket && socket.readyState === WebSocket.OPEN) {
-            // Create a session identifier from localStorage or generate one
+            // Create a session identifier or get existing one
             let sessionId = localStorage.getItem('sessionId');
             if (!sessionId) {
                 sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
                 localStorage.setItem('sessionId', sessionId);
             }
+            
+            // Debug-Information
+            console.log('Sending auth status:', isAuthenticated ? 'Authenticated' : 'Not authenticated');
             
             // Send auth status via WebSocket
             try {

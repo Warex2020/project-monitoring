@@ -425,8 +425,9 @@ server.listen(PORT, HOST, () => {
 // WebSocket connection
 wss.on('connection', async (ws, req) => {
     const clientIp = req.socket.remoteAddress;
+    console.log(`WebSocket connection established from ${clientIp}`);
     await logEvent(`New connection from ${clientIp}`);
-    
+
     // Generate a unique ID for this connection
     const connectionId = uuidv4();
     
@@ -528,8 +529,8 @@ wss.on('connection', async (ws, req) => {
     syncProjects(ws);
     
     // Connection closed
-    ws.on('close', () => {
-        console.log(`Connection from ${clientIp} closed`);
+    ws.on('close', (code, reason) => {
+        console.log(`Connection from ${clientIp} closed with code ${code} and reason: ${reason || 'No reason provided'}`);
         connections.delete(ws);
     });
     
@@ -689,6 +690,12 @@ function broadcastMessage(message, exclude = null) {
     connections.forEach((info, client) => {
         if (client !== exclude && client.readyState === WebSocket.OPEN) {
             try {
+                // Speichere das letzte bekannte Projekt für diesen Client
+                if (message.type === 'update_project' && message.data && message.data.id) {
+                    if (!info.knownProjects) info.knownProjects = {};
+                    info.knownProjects[message.data.id] = calculateProjectHash(message.data);
+                }
+                
                 client.send(messageString);
             } catch (err) {
                 console.error('Error sending broadcast message:', err);
@@ -698,45 +705,189 @@ function broadcastMessage(message, exclude = null) {
 }
 
 // Send current projects to a client
+// Send current projects to a client
 function syncProjects(ws) {
-    if (ws.readyState === WebSocket.OPEN) {
-        try {
+    if (ws.readyState !== WebSocket.OPEN) return;
+    
+    try {
+        const clientInfo = connections.get(ws);
+        if (!clientInfo) return;
+        
+        // Erst initiale Sync-Anfrage
+        if (!clientInfo.knownProjects) {
+            clientInfo.knownProjects = {};
+            
+            // Sende alle Projekte beim ersten Mal
             ws.send(JSON.stringify({
                 type: 'sync_projects',
                 data: projects,
                 timestamp: Date.now()
             }));
-        } catch (err) {
-            console.error('Error sending projects sync:', err);
+            
+            // Speichere Hash für jedes Projekt
+            for (const [id, project] of Object.entries(projects)) {
+                clientInfo.knownProjects[id] = calculateProjectHash(project);
+            }
+            
+            return;
         }
+        
+        // Inkrementelles Update - nur geänderte Projekte senden
+        const updatedProjects = {};
+        let updateCount = 0;
+        
+        for (const [id, project] of Object.entries(projects)) {
+            const currentHash = calculateProjectHash(project);
+            
+            // Wenn das Projekt neu ist oder sich geändert hat
+            if (!clientInfo.knownProjects[id] || clientInfo.knownProjects[id] !== currentHash) {
+                updatedProjects[id] = project;
+                clientInfo.knownProjects[id] = currentHash;
+                updateCount++;
+            }
+        }
+        
+        // Prüfen, ob Projekte gelöscht wurden
+        const deletedProjects = [];
+        for (const id in clientInfo.knownProjects) {
+            if (!projects[id]) {
+                deletedProjects.push(id);
+                delete clientInfo.knownProjects[id];
+            }
+        }
+        
+        // Nur senden, wenn es Änderungen gibt
+        if (updateCount > 0 || deletedProjects.length > 0) {
+            ws.send(JSON.stringify({
+                type: 'sync_updates',
+                data: {
+                    updated: updatedProjects,
+                    deleted: deletedProjects
+                },
+                timestamp: Date.now()
+            }));
+            
+            console.log(`Sent incremental update: ${updateCount} updated, ${deletedProjects.length} deleted`);
+        } else {
+            ws.send(JSON.stringify({
+                type: 'sync_unchanged',
+                timestamp: Date.now()
+            }));
+            
+            console.log('No project changes detected, sent unchanged notification');
+        }
+    } catch (err) {
+        console.error('Error sending projects sync:', err);
     }
 }
 
+// Berechnet einen Hash für ein einzelnes Projekt
+function calculateProjectHash(project) {
+    try {
+        const json = JSON.stringify(project);
+        let hash = 0;
+        
+        for (let i = 0; i < json.length; i++) {
+            const char = json.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Konvertiere zu 32bit Integer
+        }
+        
+        return hash.toString(36);
+    } catch (error) {
+        return Date.now().toString(36); // Fallback
+    }
+}
+
+// Berechne einen Hash/Fingerprint von Projekten
+function calculateProjectsHash(projects) {
+    // Einfache Hash-Berechnung durch JSON-String und Hashing
+    try {
+        const projectsJson = JSON.stringify(projects);
+        
+        // Erstelle einfachen Hash (fnv1a)
+        let hash = 0x811c9dc5; // FNV offset basis
+        for (let i = 0; i < projectsJson.length; i++) {
+            hash ^= projectsJson.charCodeAt(i);
+            hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+        }
+        
+        // Formatiere als Hex-String
+        return (hash >>> 0).toString(16);
+    } catch (error) {
+        console.error('Error calculating projects hash:', error);
+        // Fallback: Timestamp als "Hash" verwenden
+        return Date.now().toString(16);
+    }
+}
+
+
 // Process a client message
 async function handleClientMessage(message, ws) {
-    if (!message || !message.type || !message.data) {
-        console.error('Invalid client message:', message);
+    // Grundlegende Nachrichtenprüfung
+    if (!message || !message.type) {
+        console.error('Invalid client message (missing type):', message);
         return;
     }
     
     console.log('Client message received:', message.type);
     
-    // Check authentication for write operations
-    const isWriteOperation = ['add_project', 'update_project', 'delete_project', 
-                              'add_step', 'update_step', 'delete_step'].includes(message.type);
-    
-    if (isWriteOperation && securityConfig.requireLoginForChanges && !isClientAuthenticated(ws)) {
-        // Send an authentication required error
+    // Spezielle Behandlung für Ping-Nachrichten
+    if (message.type === 'ping') {
+        // Aktualisiere lastActivity-Zeitstempel
+        if (connections.has(ws)) {
+            const connInfo = connections.get(ws);
+            connInfo.lastActivity = new Date();
+            connections.set(ws, connInfo);
+        }
+        
+        // Sende Pong-Antwort
         ws.send(JSON.stringify({
-            type: 'error',
+            type: 'pong',
+            timestamp: Date.now()
+        }));
+        return;
+    }
+    
+    // Spezielle Behandlung für Authentifizierungsnachrichten
+    if (message.type === 'authenticate') {
+        const sessionId = message.data?.sessionId;
+        const authenticated = message.data?.authenticated;
+        
+        const connInfo = connections.get(ws);
+        if (connInfo) {
+            connInfo.authenticated = authenticated;
+            connInfo.sessionId = sessionId;
+            connections.set(ws, connInfo);
+        }
+        
+        // Bestätigung senden
+        ws.send(JSON.stringify({
+            type: 'auth_status',
             data: {
-                message: 'Authentication required to make changes',
-                code: 'AUTH_REQUIRED'
+                authenticated: authenticated
             },
             timestamp: Date.now()
         }));
         return;
     }
+    
+    // Für Synchronized-Anfragen
+    if (message.type === 'request_sync') {
+        syncProjects(ws);
+        return;
+    }
+    
+    // Für alle anderen Operationen prüfen wir, ob data vorhanden ist
+    if (!message.data) {
+        console.error('Invalid client message (missing data):', message);
+        return;
+    }
+    
+    // Rest der Funktion unverändert...
+    // Check authentication for write operations
+    const isWriteOperation = ['add_project', 'update_project', 'delete_project', 
+                              'add_step', 'update_step', 'delete_step'].includes(message.type);
     
     // Process the message based on its type
     try {

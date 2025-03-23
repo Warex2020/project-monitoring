@@ -14,9 +14,17 @@ const maxReconnectInterval = 30000; // Max 30 seconds between attempts
 let backoffFactor = 1.5; // Exponential backoff factor
 let heartbeatInterval = null;
 
+// Debounce Timer für Statusänderungen
+let connectionStatusTimer = null;
+let lastConnectionStatus = null; 
+let pendingStatus = null;
+
 // Authentication state
 let authToken = null;
 let csrfToken = null;
+
+// UIX
+let lastProjectsState = ""; // Letzter Projekte-Status für Vergleich
 
 // Connection status indicators
 const connectionIndicator = document.getElementById('connection-indicator');
@@ -67,7 +75,7 @@ function connectWebSocket() {
         // Erzwinge unsichere Verbindungen
         //const protocol = 'ws://'; // Erzwinge unsichere Verbindung für Tests
 
-        const host = '10.66.66.5'; // oder '127.0.0.1' statt window.location.hostname
+        const host = window.location.hostname;
         const port = window.location.port || 3420;  // Use the current port or default
         
         console.log(`Establishing WebSocket connection to ${protocol}${host}:${port}...`);
@@ -97,6 +105,9 @@ function connectWebSocket() {
             updateConnectionStatus('connected');
             startHeartbeat();
             
+            // Debug-Information
+            console.log('Connection established, sending auth status...');
+            
             // Dispatch custom event
             window.dispatchEvent(new CustomEvent('websocketStatusChange', {
                 detail: { isConnected: true }
@@ -105,6 +116,7 @@ function connectWebSocket() {
             // Send authentication status if available
             if (typeof AuthManager !== 'undefined' && typeof AuthManager.sendAuthStatus === 'function') {
                 setTimeout(() => {
+                    console.log('Attempting to send auth status...');
                     AuthManager.sendAuthStatus();
                 }, 500);
             }
@@ -163,7 +175,7 @@ function connectWebSocket() {
         
         // Event handler for closed connection
         socket.onclose = function(event) {
-            console.log('WebSocket connection closed', event.code, event.reason);
+            console.log(`WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason || 'No reason provided'}, Clean: ${event.wasClean}`);
             isConnected = false;
             stopHeartbeat(); // Heartbeat stoppen
             
@@ -512,7 +524,7 @@ function sendWebSocketMessage(type, data, queueIfOffline = true) {
  * @param {Object} message - Message to process
  */
 function handleWebSocketMessage(message) {
-    if (!message || !message.type || !message.data) {
+    if (!message || !message.type) {
         console.error('Invalid WebSocket message:', message);
         return;
     }
@@ -538,41 +550,72 @@ function handleWebSocketMessage(message) {
             }
             break;
             
-        case 'add_step':
-            if (typeof TodoManager !== 'undefined' && typeof TodoManager.addStep === 'function') {
-                TodoManager.addStep(message.data.projectId, message.data);
-            }
-            break;
-            
-        case 'update_step':
-            if (typeof TodoManager !== 'undefined' && typeof TodoManager.updateStep === 'function') {
-                TodoManager.updateStep(message.data.projectId, message.data);
-            }
-            break;
-            
-        case 'delete_step':
-            if (typeof TodoManager !== 'undefined' && typeof TodoManager.deleteStep === 'function') {
-                TodoManager.deleteStep(message.data.projectId, message.data.id);
-            }
-            break;
-            
         case 'sync_projects':
-            // Complete synchronization of all projects
-            handleProjectSync(message.data);
+            // Vollsynchronisierung - alle Projekte ersetzen
+            handleFullProjectSync(message.data);
             break;
             
-        default:
-            console.warn('Unknown message type:', message.type);
+        case 'sync_updates':
+            // Inkrementelle Synchronisierung - nur geänderte Projekte
+            handleIncrementalSync(message.data);
+            break;
             
-            // Dispatch custom event for plugins to handle
-            window.dispatchEvent(new CustomEvent('websocketMessage', {
-                detail: { message }
-            }));
+        case 'sync_unchanged':
+            // Keine Änderungen - nichts tun
+            console.log('Projects unchanged, no UI update needed');
+            break;
+            
+        // andere Fälle...
     }
     
     // Update UI based on current authentication status
     if (typeof AuthManager !== 'undefined' && typeof AuthManager.updateUI === 'function') {
         AuthManager.updateUI();
+    }
+}
+
+/**
+ * Verarbeitet die vollständige Projektsynchronisierung
+ * @param {Object} projects - Alle Projekte
+ */
+function handleFullProjectSync(projects) {
+    if (!projects) return;
+    
+    console.log('Performing full project sync with', Object.keys(projects).length, 'projects');
+    
+    if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.updateProject === 'function') {
+        Object.values(projects).forEach(project => {
+            ProjectManager.updateProject(project);
+        });
+    }
+}
+
+/**
+ * Verarbeitet inkrementelle Projektupdates
+ * @param {Object} data - Update-Daten (updated und deleted Projekte)
+ */
+function handleIncrementalSync(data) {
+    if (!data) return;
+    
+    // Aktualisierte Projekte verarbeiten
+    if (data.updated && typeof ProjectManager !== 'undefined') {
+        const updatedCount = Object.keys(data.updated).length;
+        if (updatedCount > 0) {
+            console.log(`Processing ${updatedCount} updated projects`);
+            
+            Object.values(data.updated).forEach(project => {
+                ProjectManager.updateProject(project);
+            });
+        }
+    }
+    
+    // Gelöschte Projekte verarbeiten
+    if (data.deleted && data.deleted.length > 0 && typeof ProjectManager !== 'undefined') {
+        console.log(`Processing ${data.deleted.length} deleted projects`);
+        
+        data.deleted.forEach(projectId => {
+            ProjectManager.deleteProject(projectId);
+        });
     }
 }
 
@@ -583,49 +626,109 @@ function handleWebSocketMessage(message) {
 function handleProjectSync(projects) {
     if (!projects) return;
     
-    if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.updateProject === 'function') {
-        Object.values(projects).forEach(project => {
-            ProjectManager.updateProject(project);
-        });
+    // Projekte Vergleichen - JSON-String als Hash verwenden
+    const newProjectsState = JSON.stringify(projects);
+    
+    // Nur aktualisieren, wenn sich etwas geändert hat
+    if (newProjectsState !== lastProjectsState) {
+        console.log('Projects changed, updating UI');
         
-        console.log('Projects synchronized:', Object.keys(projects).length);
+        if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.updateProject === 'function') {
+            Object.values(projects).forEach(project => {
+                ProjectManager.updateProject(project);
+            });
+            
+            console.log('Projects synchronized:', Object.keys(projects).length);
+        }
+        
+        // Neuen Status speichern
+        lastProjectsState = newProjectsState;
+    } else {
+        console.log('No project changes, skipping UI update');
     }
 }
 
 /**
- * Updates the connection status display
+ * Updates the connection status display with debouncing
  * @param {string} status - Connection status
  */
 function updateConnectionStatus(status) {
     if (!connectionIndicator || !connectionText) return;
+    
+    // Status-Übergänge priorisieren:
+    // - Sofort anzeigen: 'offline' und 'disconnected' (kritische Zustände)
+    // - Verzögert anzeigen: 'connecting' und 'connected'
+    
+    // Wenn ein kritischer Status eintritt, sofort anzeigen
+    if (status === 'offline' || status === 'disconnected') {
+        clearTimeout(connectionStatusTimer);
+        pendingStatus = null;
+        doUpdateConnectionStatus(status);
+        return;
+    }
+    
+    // Connecting sollte nur angezeigt werden, wenn nicht schon 'connected'
+    if (status === 'connecting' && lastConnectionStatus === 'connected') {
+        return; // Ignoriere kurze "connecting"-Phasen wenn wir bereits verbunden sind
+    }
+    
+    // Bei anderen Status-Updates: Verzögerung einbauen (Debounce)
+    pendingStatus = status;
+    
+    if (connectionStatusTimer) {
+        clearTimeout(connectionStatusTimer);
+    }
+    
+    // Verzögerung von 2 Sekunden für nicht-kritische Statusänderungen
+    connectionStatusTimer = setTimeout(() => {
+        if (pendingStatus) {
+            doUpdateConnectionStatus(pendingStatus);
+            pendingStatus = null;
+        }
+    }, 2000);
+}
 
+/**
+ * Tatsächliche Aktualisierung der UI nach Debouncing
+ * @param {string} status - Connection status
+ */
+function doUpdateConnectionStatus(status) {
+    // Wenn der Status gleich ist, nichts tun
+    if (lastConnectionStatus === status) return;
+    
+    // Alten Status speichern
+    lastConnectionStatus = status;
+    
     // Entferne alle vorherigen Klassen
     connectionIndicator.className = '';
-
+    
+    // Längere Transition für sanftere Übergänge
+    connectionIndicator.style.transition = 'all 0.8s ease';
+    
     switch (status) {
         case 'connected':
             connectionIndicator.classList.add('connected');
             connectionText.textContent = 'Verbunden';
             break;
-
+            
         case 'disconnected':
             connectionIndicator.classList.add('disconnected');
             connectionText.textContent = 'Verbindung verloren';
             break;
-
+            
         case 'connecting':
             connectionIndicator.classList.add('connecting');
             connectionText.textContent = 'Verbindung wird hergestellt...';
             break;
-
+            
         case 'offline':
             connectionIndicator.classList.add('offline');
             connectionText.textContent = 'Offline-Modus';
             break;
     }
-
-    // Verhindere UI-Zucken durch sanfte Übergänge
-    connectionIndicator.style.transition = 'opacity 0.5s ease';
+    
+    // Für Debugging
+    console.log(`Connection status changed to: ${status}`);
 }
 
 /**
@@ -643,7 +746,11 @@ function startHeartbeat() {
     }
     heartbeatInterval = setInterval(() => {
         if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ type: 'ping' }));
+            socket.send(JSON.stringify({ 
+                type: 'ping', 
+                data: {}, // Add empty data object
+                timestamp: Date.now() 
+            }));
             console.log('Heartbeat sent');
         }
     }, 30000); // Alle 30 Sekunden

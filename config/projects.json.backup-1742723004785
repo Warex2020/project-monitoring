@@ -55,14 +55,13 @@
         "description": "Final preparations for system cutover and go-live",
         "completed": false
       }
-    ],
-    "updatedAt": "2025-03-23T09:43:41.510Z"
+    ]
   },
   "p002": {
     "id": "p002",
     "title": "Network Security Audit",
     "status": "at-risk",
-    "progress": 50,
+    "progress": 65,
     "nextStep": "Remediate critical vulnerabilities",
     "team": [
       "Alex",
@@ -105,8 +104,7 @@
         "description": "Prepare final audit report for management",
         "completed": false
       }
-    ],
-    "updatedAt": "2025-03-23T10:37:20.012Z"
+    ]
   },
   "p003": {
     "id": "p003",
@@ -163,8 +161,7 @@
         "description": "Document phase 1 infrastructure and processes",
         "completed": true
       }
-    ],
-    "updatedAt": "2025-03-23T09:43:40.875Z"
+    ]
   },
   "p004": {
     "id": "p004",
@@ -220,15 +217,14 @@
         "description": "Launch new helpdesk system",
         "completed": false
       }
-    ],
-    "updatedAt": "2025-03-23T10:36:22.260Z"
+    ]
   },
   "p005": {
     "id": "p005",
     "title": "Windows 11 Deployment",
     "status": "on-track",
-    "progress": 50,
-    "nextStep": "Pilot deployment",
+    "progress": 75,
+    "nextStep": "Pilot rollout to management team",
     "team": [
       "Carlos",
       "Ingrid",
@@ -241,18 +237,14 @@
         "projectId": "p005",
         "title": "Hardware inventory",
         "description": "Audit all workstations for Windows 11 compatibility",
-        "completed": true,
-        "updatedAt": "2025-03-23T09:43:42.121Z",
-        "tags": []
+        "completed": true
       },
       {
         "id": "s025",
         "projectId": "p005",
         "title": "Image creation",
         "description": "Create and test standard Windows 11 image",
-        "completed": true,
-        "updatedAt": "2025-03-23T09:43:42.425Z",
-        "tags": []
+        "completed": true
       },
       {
         "id": "s026",
@@ -283,17 +275,5 @@
         "completed": false
       }
     ]
-  },
-  "m8lga4ko6n9w8": {
-    "id": "m8lga4ko6n9w8",
-    "title": "asdsad",
-    "status": "completed",
-    "progress": 50,
-    "nextStep": "",
-    "team": [],
-    "deadline": "",
-    "steps": [],
-    "updatedAt": "2025-03-23T10:15:07.799Z",
-    "createdAt": "2025-03-23T09:43:24.785Z"
   }
 }
