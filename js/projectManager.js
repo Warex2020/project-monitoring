@@ -793,7 +793,7 @@ const ProjectManager = (() => {
                              JSON.stringify(existingProject) === JSON.stringify(updatedProject);
         
         if (projectsEqual) {
-            console.log(`Project ${updatedProject.id} unchanged, skipping update`);
+            //console.log(`Project ${updatedProject.id} unchanged, skipping update`);
             return existingProject;
         }
         

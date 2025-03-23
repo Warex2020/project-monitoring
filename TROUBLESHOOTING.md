@@ -149,6 +149,16 @@ npm install
 bash docker-run.sh
 ```
 
+# Logs auswerten
+sudo docker compose logs -f
+
+# Sessions löschen
+sudo docker exec -it project-monitoring rm -rf sessions/*
+sudo docker compose restart
+
+# Container rebuild
+sudo docker compose build --no-cache
+
 ## Support erhalten
 
 Wenn du weitere Unterstützung benötigst, erstelle ein Issue im GitHub-Repository oder kontaktiere den Administrator deines IT-Teams.

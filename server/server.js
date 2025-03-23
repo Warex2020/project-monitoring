@@ -549,8 +549,8 @@ app.use(session({
     cookie: { 
         secure: process.env.NODE_ENV === 'production', // In Produktion nur HTTPS
         httpOnly: true, // Nicht per JS zugreifbar
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        sameSite: 'strict' // CSRF-Schutz
+        maxAge: 24 * 60 * 60 * 1000 * 30, // 24 hours * 30 Tage
+        sameSite: 'lax' // CSRF-Schutz
     }
 }));
 
@@ -989,27 +989,69 @@ wss.on('connection', async (ws, req) => {
     
     // Extract CSRF token from headers if present
     const csrfToken = req.headers['x-csrf-token'];
-    
-    // Extract session ID from cookies
+
+    // Improved session extraction
     let sessionId = null;
     const cookies = req.headers.cookie;
     if (cookies) {
         const sessionCookie = cookies.split(';').find(c => c.trim().startsWith('projectMonitoringSessionId='));
         if (sessionCookie) {
             sessionId = sessionCookie.split('=')[1].trim();
+            console.log('Found session ID in WebSocket request:', sessionId);
+            
+            // Attempt to load the session directly from the file store
+            try {
+                const sessionDir = './sessions';
+                const sessionFiles = fs.readdirSync(sessionDir);
+                
+                // Search for the session file
+                for (const file of sessionFiles) {
+                    if (file.includes(sessionId)) {
+                        const sessionData = fs.readFileSync(path.join(sessionDir, file), 'utf8');
+                        try {
+                            const sessionJson = JSON.parse(sessionData);
+                            if (sessionJson.authenticated) {
+                                console.log('Found authenticated session for:', sessionJson.username);
+                                
+                                // Mark session as authenticated
+                                connections.set(ws, { 
+                                    id: connectionId,
+                                    ip: clientIp,
+                                    authenticated: true,
+                                    username: sessionJson.username,
+                                    role: sessionJson.role || 'user',
+                                    connectedAt: new Date(),
+                                    lastActivity: new Date(),
+                                    sessionId: sessionId,
+                                    csrfToken: csrfToken
+                                });
+                                break;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing session data:', e);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error reading session files:', err);
+            }
         }
     }
-    
-    // Store connection info
-    connections.set(ws, { 
-        id: connectionId,
-        ip: clientIp,
-        authenticated: false, // Will be updated when client sends auth status
-        connectedAt: new Date(),
-        lastActivity: new Date(),
-        sessionId: sessionId,
-        csrfToken: csrfToken
-    });
+
+    // Store connection info if not authenticated yet
+    if (!connections.has(ws)) {
+        connections.set(ws, { 
+            id: connectionId,
+            ip: clientIp,
+            authenticated: false,
+            username: null,
+            role: null,
+            connectedAt: new Date(),
+            lastActivity: new Date(),
+            sessionId: sessionId,
+            csrfToken: csrfToken
+        });
+    }
 
     // Add native ping/pong handling
     ws.on('ping', () => {
@@ -1239,25 +1281,86 @@ async function handleClientMessage(message, ws) {
     // Special handling for authentication messages
     if (message.type === 'authenticate') {
         const sessionId = message.data?.sessionId;
-        const authenticated = message.data?.authenticated;
+        const clientAuthenticated = message.data?.authenticated;
         
         const connInfo = connections.get(ws);
-        if (connInfo) {
-            connInfo.authenticated = authenticated;
-            connInfo.sessionId = sessionId;
-            connections.set(ws, connInfo);
-            
-            console.log(`Client ${sessionId} authentication status updated:`, authenticated);
+        if (!connInfo) {
+            return;
         }
         
-        // Send confirmation
+        console.log(`Client ${sessionId} sent authenticate message`);
+        
+        // Wenn ein Session-Cookie vorhanden ist, versuchen wir die Session zu verifizieren
+        if (connInfo.sessionId) {
+            try {
+                // Direkter Zugriff auf Session-Dateien (synchron für einfacheres Handling)
+                const sessionDir = './sessions';
+                try {
+                    const sessionFiles = fs.readdirSync(sessionDir);
+                    let authenticated = false;
+                    let username = null;
+                    let role = null;
+                    
+                    // Suche nach der Session-Datei
+                    for (const file of sessionFiles) {
+                        if (file.includes(connInfo.sessionId)) {
+                            try {
+                                const sessionData = fs.readFileSync(path.join(sessionDir, file), 'utf8');
+                                const sessionJson = JSON.parse(sessionData);
+                                
+                                if (sessionJson.authenticated) {
+                                    authenticated = true;
+                                    username = sessionJson.username || null;
+                                    role = sessionJson.role || null;
+                                    
+                                    console.log(`Found authenticated session for: ${username}`);
+                                    break;
+                                }
+                            } catch (e) {
+                                console.error('Error parsing session file:', e);
+                            }
+                        }
+                    }
+                    
+                    // Aktualisiere die Verbindungsinfo mit den gefundenen Daten
+                    connInfo.authenticated = authenticated;
+                    connInfo.username = username;
+                    connInfo.role = role;
+                    connections.set(ws, connInfo);
+                    
+                    // Sende den authentifizierten Status zurück
+                    ws.send(JSON.stringify({
+                        type: 'auth_status',
+                        data: {
+                            authenticated: authenticated,
+                            username: username,
+                            role: role,
+                            timestamp: Date.now()
+                        }
+                    }));
+                    
+                    console.log(`Client ${sessionId} authentication status updated:`, authenticated);
+                    return;
+                } catch (fsErr) {
+                    console.error('Error reading session directory:', fsErr);
+                }
+            } catch (err) {
+                console.error('Error verifying session:', err);
+            }
+        }
+        
+        // Fallback - sende den vorhandenen Status (nicht authentifiziert)
         ws.send(JSON.stringify({
             type: 'auth_status',
             data: {
-                authenticated: authenticated,
+                authenticated: connInfo.authenticated || false,
+                username: connInfo.username || null,
+                role: connInfo.role || null,
                 timestamp: Date.now()
             }
         }));
+        
+        console.log(`Client ${sessionId} using default authentication status:`, connInfo.authenticated || false);
         return;
     }
     

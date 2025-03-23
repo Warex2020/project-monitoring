@@ -21,8 +21,8 @@ let config = {
     adminRoutes: ['/api/admin', '/api/users'],
     managerRoutes: ['/api/projects/all'],
     saltRounds: 12, // Für bcrypt
-    rateLimitWindow: 15 * 60 * 1000, // 15 Minuten
-    rateLimitMaxAttempts: 5,
+    rateLimitWindow: 3 * 60 * 1000, // 3 Minuten
+    rateLimitMaxAttempts: 15,
     csrfProtection: true
 };
 

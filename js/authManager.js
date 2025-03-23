@@ -117,7 +117,7 @@ const AuthManager = (() => {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                credentials: 'include' // Important: include cookies for session auth
+                credentials: 'include' // Include cookies
             });
             
             if (!response.ok) {
@@ -127,11 +127,17 @@ const AuthManager = (() => {
             const data = await response.json();
             console.log('Server auth status:', data);
             
-            // Update authentication state
-            isAuthenticatedStatus = data.authenticated;
-            requiresAuth = data.requiresAuth;
-            username = data.username;
-            role = data.role;
+            // WICHTIG: Nur aktualisieren, wenn der Server explizit Authentifizierungsinformationen zurückgibt
+            // Wenn der Server keine Session-Informationen hat, sollten wir den lokalen Status beibehalten
+            if (data.authenticated !== undefined) {
+                isAuthenticatedStatus = data.authenticated;
+                if (data.username) username = data.username;
+                if (data.role) role = data.role;
+            }
+            
+            if (data.requiresAuth !== undefined) {
+                requiresAuth = data.requiresAuth;
+            }
             
             // Update localStorage for persistence between page reloads
             saveAuthStatus();
