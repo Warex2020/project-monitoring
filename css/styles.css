@@ -206,14 +206,34 @@ h3 {
     background-color: rgba(74, 108, 247, 0.1);
 }
 
-/* Projekt-Grid mit CSS Grid */
+/* Ersetze die bestehende grid-template-columns Eigenschaft mit dieser: */
 .projects-grid {
     display: grid;
-    gap: var(--grid-gap);
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    min-height: 200px; /* Verhindere Container-Kollaps, wenn leer */
+    grid-template-columns: repeat(4, 1fr); /* Genau 4 Spalten mit gleicher Breite */
+    grid-gap: 24px;
+    padding: 20px;
+    margin-bottom: 40px;
 }
 
+/* Falls du Bootstrap verwendest und das responsive Verhalten beibehalten möchtest, 
+   kannst du Media Queries verwenden: */
+@media (max-width: 1200px) {
+    .projects-grid {
+        grid-template-columns: repeat(3, 1fr); /* 3 Spalten für mittlere Bildschirme */
+    }
+}
+
+@media (max-width: 768px) {
+    .projects-grid {
+        grid-template-columns: repeat(2, 1fr); /* 2 Spalten für Tablets */
+    }
+}
+
+@media (max-width: 576px) {
+    .projects-grid {
+        grid-template-columns: 1fr; /* 1 Spalte für Mobilgeräte */
+    }
+}
 /* Project Cards */
 .project-card {
     border-radius: 14px;
@@ -616,18 +636,34 @@ h3 {
 
 /* Barrierefreie Custom Checkboxen */
 .step-checkbox {
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
-    margin-right: 15px;
-    position: relative;
-    flex-shrink: 0;
-    transition: all 0.2s ease;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #4a6cf7;
+    margin-right: 12px;
     cursor: pointer;
-    border: 2px solid var(--secondary-color);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.step-completed .step-checkbox::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #4a6cf7;
+    font-size: 12px;
+}
+
+.step-checkbox:hover {
+    background-color: rgba(74, 108, 247, 0.1);
+}
+
+.step-completed .step-title {
+    text-decoration: line-through;
+    color: #a3a8b8;
 }
 
 .step-completed .step-checkbox {

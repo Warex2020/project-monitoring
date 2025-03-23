@@ -1,6 +1,6 @@
 /**
  * server.js - Enhanced WebSocket-Server for the Project-Monitoring-Dashboard
- * Version 1.4.0 - SECURITY ENHANCED
+ * Version 1.5.0 - SECURITY ENHANCED with Authentication Fixes
  */
 
 const WebSocket = require('ws');
@@ -56,7 +56,401 @@ const logEvent = async (message) => {
     } catch (err) {
         console.error('Error writing to log file:', err);
     }
-};
+}
+
+// Load projects from configuration file
+async function loadProjects() {
+    try {
+        const data = await fileManager.loadJson(PROJECTS_FILE);
+        if (data) {
+            projects = data;
+            console.log(`${Object.keys(projects).length} projects loaded`);
+        } else {
+            // Create empty project data if none exists
+            projects = {};
+            console.log('No projects found. Starting with empty project list.');
+            await saveProjects();
+        }
+    } catch (error) {
+        console.error('Error loading projects:', error);
+        // Create empty project file if it doesn't exist
+        try {
+            projects = {};
+            await fileManager.saveJson(PROJECTS_FILE, {});
+            console.log('Empty project file created');
+        } catch (err) {
+            console.error('Error creating project file:', err);
+        }
+    }
+}
+
+// Save projects to configuration file
+async function saveProjects() {
+    try {
+        await fileManager.saveJson(PROJECTS_FILE, projects);
+        console.log('Projects saved');
+        return true;
+    } catch (error) {
+        console.error('Error saving projects:', error);
+        return false;
+    }
+}
+
+// Create a backup of the projects file
+async function backupProjects() {
+    try {
+        const backupPath = `${PROJECTS_FILE}.backup-${Date.now()}`;
+        await fs.copyFile(PROJECTS_FILE, backupPath);
+        console.log(`Projects backup created: ${backupPath}`);
+        
+        // Delete old backups (keep last 5)
+        const dirPath = path.dirname(PROJECTS_FILE);
+        const files = await fs.readdir(dirPath);
+        
+        const backups = files
+            .filter(file => file.startsWith('projects.json.backup-'))
+            .map(file => path.join(dirPath, file))
+            .sort();
+            
+        // Delete older backups, keeping only the last 5
+        if (backups.length > 5) {
+            for (let i = 0; i < backups.length - 5; i++) {
+                await fs.unlink(backups[i]);
+                console.log(`Deleted old backup: ${backups[i]}`);
+            }
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Error creating projects backup:', error);
+        return false;
+    }
+}
+
+// Send a message to all connected clients except the sender
+function broadcastMessage(message, exclude = null) {
+    const messageString = JSON.stringify(message);
+    
+    connections.forEach((info, client) => {
+        if (client !== exclude && client.readyState === WebSocket.OPEN) {
+            try {
+                // Speichere das letzte bekannte Projekt für diesen Client
+                if (message.type === 'update_project' && message.data && message.data.id) {
+                    if (!info.knownProjects) info.knownProjects = {};
+                    info.knownProjects[message.data.id] = calculateProjectHash(message.data);
+                }
+                
+                client.send(messageString);
+            } catch (err) {
+                console.error('Error sending broadcast message:', err);
+            }
+        }
+    });
+}
+
+// Send current projects to a client
+function syncProjects(ws) {
+    if (ws.readyState !== WebSocket.OPEN) return;
+    
+    try {
+        const clientInfo = connections.get(ws);
+        if (!clientInfo) return;
+        
+        // Erst initiale Sync-Anfrage
+        if (!clientInfo.knownProjects) {
+            clientInfo.knownProjects = {};
+            
+            // Sende alle Projekte beim ersten Mal
+            ws.send(JSON.stringify({
+                type: 'sync_projects',
+                data: projects,
+                timestamp: Date.now()
+            }));
+            
+            // Speichere Hash für jedes Projekt
+            for (const [id, project] of Object.entries(projects)) {
+                clientInfo.knownProjects[id] = calculateProjectHash(project);
+            }
+            
+            return;
+        }
+        
+        // Inkrementelles Update - nur geänderte Projekte senden
+        const updatedProjects = {};
+        let updateCount = 0;
+        
+        for (const [id, project] of Object.entries(projects)) {
+            const currentHash = calculateProjectHash(project);
+            
+            // Wenn das Projekt neu ist oder sich geändert hat
+            if (!clientInfo.knownProjects[id] || clientInfo.knownProjects[id] !== currentHash) {
+                updatedProjects[id] = project;
+                clientInfo.knownProjects[id] = currentHash;
+                updateCount++;
+            }
+        }
+        
+        // Prüfen, ob Projekte gelöscht wurden
+        const deletedProjects = [];
+        for (const id in clientInfo.knownProjects) {
+            if (!projects[id]) {
+                deletedProjects.push(id);
+                delete clientInfo.knownProjects[id];
+            }
+        }
+        
+        // Nur senden, wenn es Änderungen gibt
+        if (updateCount > 0 || deletedProjects.length > 0) {
+            ws.send(JSON.stringify({
+                type: 'sync_updates',
+                data: {
+                    updated: updatedProjects,
+                    deleted: deletedProjects
+                },
+                timestamp: Date.now()
+            }));
+            
+            console.log(`Sent incremental update: ${updateCount} updated, ${deletedProjects.length} deleted`);
+        } else {
+            ws.send(JSON.stringify({
+                type: 'sync_unchanged',
+                timestamp: Date.now()
+            }));
+            
+            console.log('No project changes detected, sent unchanged notification');
+        }
+    } catch (err) {
+        console.error('Error sending projects sync:', err);
+    }
+}
+
+// Berechnet einen Hash für ein einzelnes Projekt
+function calculateProjectHash(project) {
+    try {
+        const json = JSON.stringify(project);
+        let hash = 0;
+        
+        for (let i = 0; i < json.length; i++) {
+            const char = json.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Konvertiere zu 32bit Integer
+        }
+        
+        return hash.toString(36);
+    } catch (error) {
+        return Date.now().toString(36); // Fallback
+    }
+}
+
+// Validate project data
+function isValidProject(project) {
+    // Required fields
+    if (!project.title) {
+        return false;
+    }
+    
+    // Valid status
+    const validStatuses = ['on-track', 'at-risk', 'delayed', 'completed'];
+    if (!validStatuses.includes(project.status)) {
+        return false;
+    }
+    
+    // Valid progress (0-100)
+    if (typeof project.progress !== 'number' || project.progress < 0 || project.progress > 100) {
+        return false;
+    }
+    
+    // Deadline format (if present)
+    if (project.deadline) {
+        const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+        if (!datePattern.test(project.deadline)) {
+            return false;
+        }
+    }
+    
+    // Team members (if present) must be an array
+    if (project.team && !Array.isArray(project.team)) {
+        return false;
+    }
+
+    return true;
+}
+
+// Validate step data
+function isValidStep(step) {
+    // Required fields
+    if (!step.title || !step.projectId) {
+        return false;
+    }
+
+    // Completed status must be boolean
+    if (typeof step.completed !== 'boolean') {
+        return false;
+    }
+
+    return true;
+}
+
+// Generate a unique ID
+function generateUniqueId() {
+    return uuidv4();
+}
+
+// Update project progress based on steps
+function updateProjectProgress(project) {
+    if (!project || !project.steps || project.steps.length === 0) return;
+
+    // Calculate percentage of completed steps
+    const completedSteps = project.steps.filter(step => step.completed).length;
+    const totalSteps = project.steps.length;
+    const progressPercentage = Math.round((completedSteps / totalSteps) * 100);
+
+    // Update project progress
+    project.progress = progressPercentage;
+
+    // Update project status based on progress
+    updateProjectStatus(project);
+
+    // Update next step
+    updateNextStep(project);
+}
+
+// Update project status based on progress and deadline
+function updateProjectStatus(project) {
+    if (!project) return;
+
+    // If all steps are completed, set status to "completed"
+    if (project.progress === 100) {
+        project.status = 'completed';
+        return;
+    }
+
+    // Check if deadline has passed
+    if (project.deadline) {
+        const deadlineDate = new Date(project.deadline);
+        const today = new Date();
+        
+        if (deadlineDate < today) {
+            project.status = 'delayed';
+            return;
+        }
+        
+        // Check if deadline is less than 7 days away and progress < 70%
+        const diffTime = deadlineDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays <= 7 && project.progress < 70) {
+            project.status = 'at-risk';
+            return;
+        }
+    }
+
+    // Default: On Track
+    if (project.status !== 'at-risk' && project.status !== 'delayed') {
+        project.status = 'on-track';
+    }
+}
+
+// Update next step for a project
+function updateNextStep(project) {
+    if (!project || !project.steps || project.steps.length === 0) return;
+
+    // Find the first incomplete step
+    const nextStep = project.steps.find(step => !step.completed);
+
+    if (nextStep) {
+        project.nextStep = nextStep.title;
+    } else {
+        project.nextStep = 'All steps completed';
+    }
+}
+
+// Check if an IP is in a CIDR range
+function isIpInCidrRange(ip, cidr) {
+    try {
+        const [range, bits] = cidr.split('/');
+        const mask = parseInt(bits, 10);
+        
+        // Convert IP address to integer
+        const ipInt = ipToInt(ip);
+        const rangeInt = ipToInt(range);
+        
+        // Calculate network address and broadcast address
+        const shiftBits = 32 - mask;
+        const netmask = ((1 << mask) - 1) << shiftBits;
+        const networkAddr = rangeInt & netmask;
+        const broadcastAddr = networkAddr | ((1 << shiftBits) - 1);
+        
+        // Check if IP is in range
+        return ipInt >= networkAddr && ipInt <= broadcastAddr;
+    } catch (error) {
+        console.error('Error checking CIDR range:', error);
+        return false;
+    }
+}
+
+// Convert an IP address to an integer
+function ipToInt(ip) {
+    try {
+        return ip.split('.')
+            .reduce((int, octet) => (int << 8) + parseInt(octet, 10), 0) >>> 0;
+    } catch (error) {
+        console.error('Error converting IP to int:', error);
+        return 0;
+    }
+}
+
+// Periodic cleanup of inactive connections
+setInterval(() => {
+    const now = new Date();
+    const inactiveTimeout = 30 * 60 * 1000; // 30 minutes
+
+    connections.forEach((info, client) => {
+        if (now - info.lastActivity > inactiveTimeout) {
+            // Close inactive connection
+            console.log(`Closing inactive connection from ${info.ip}`);
+            client.close(1000, 'Inactivity timeout');
+            connections.delete(client);
+        }
+    });
+}, 5 * 60 * 1000); // Check every 5 minutes
+
+// Create a complete backup of all projects daily
+setInterval(async () => {
+    try {
+        const backupPath = path.join(CONFIG_PATH, 'backups');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupFile = path.join(backupPath, `projects-backup-${timestamp}.json`);
+        
+        // Create backups directory if it doesn't exist
+        await fs.mkdir(backupPath, { recursive: true });
+        
+        // Copy current projects file
+        const projectsData = await fs.readFile(PROJECTS_FILE, 'utf8');
+        await fs.writeFile(backupFile, projectsData);
+        
+        console.log(`Daily backup created: ${backupFile}`);
+        
+        // Delete backups older than 30 days
+        const files = await fs.readdir(backupPath);
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        
+        for (const file of files) {
+            if (file.startsWith('projects-backup-')) {
+                const filePath = path.join(backupPath, file);
+                const stats = await fs.stat(filePath);
+                
+                if (stats.mtime < thirtyDaysAgo) {
+                    await fs.unlink(filePath);
+                    console.log(`Deleted old backup: ${filePath}`);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error creating daily backup:', error);
+    }
+}, 24 * 60 * 60 * 1000); // Run once a day
 
 // Server configuration
 let config;
@@ -422,7 +816,7 @@ server.listen(PORT, HOST, () => {
     loadProjects();
 });
 
-// WebSocket connection
+// WebSocket connection handler with improved authentication
 wss.on('connection', async (ws, req) => {
     const clientIp = req.socket.remoteAddress;
     console.log(`WebSocket connection established from ${clientIp}`);
@@ -431,13 +825,28 @@ wss.on('connection', async (ws, req) => {
     // Generate a unique ID for this connection
     const connectionId = uuidv4();
     
+    // Extract CSRF token from headers if present
+    const csrfToken = req.headers['x-csrf-token'];
+    
+    // Extract session ID from cookies
+    let sessionId = null;
+    const cookies = req.headers.cookie;
+    if (cookies) {
+        const sessionCookie = cookies.split(';').find(c => c.trim().startsWith('projectMonitoringSessionId='));
+        if (sessionCookie) {
+            sessionId = sessionCookie.split('=')[1].trim();
+        }
+    }
+    
     // Store connection info
     connections.set(ws, { 
         id: connectionId,
         ip: clientIp,
-        authenticated: false,
+        authenticated: false, // Will be updated when client sends auth status
         connectedAt: new Date(),
-        lastActivity: new Date()
+        lastActivity: new Date(),
+        sessionId: sessionId,
+        csrfToken: csrfToken
     });
 
     // Add native ping/pong handling
@@ -459,6 +868,7 @@ wss.on('connection', async (ws, req) => {
     // Cleanup on close
     ws.on('close', () => {
         clearInterval(pingInterval);
+        connections.delete(ws);
     });
     
     // Check if IP is allowed (skip if security mode is public)
@@ -480,66 +890,26 @@ wss.on('connection', async (ws, req) => {
         return;
     }
     
-    await logEvent(`Connection from ${clientIp} authorized and established`);
-    
-    // Handle authentication status for the connection
-    // Extract session ID from cookies
-    const cookies = req.headers.cookie;
-    if (cookies) {
-        const sessionCookie = cookies.split(';').find(c => c.trim().startsWith('projectMonitoringSessionId='));
-        if (sessionCookie) {
-            const sessionId = sessionCookie.split('=')[1].trim();
-            
-            // Store session ID with connection
-            const connInfo = connections.get(ws);
-            connInfo.sessionId = sessionId;
-            connections.set(ws, connInfo);
-        }
+    // Send CSRF token to client for later use
+    if (req.session && req.session.csrfToken) {
+        ws.send(JSON.stringify({
+            type: 'csrf_token',
+            data: {
+                token: req.session.csrfToken
+            },
+            timestamp: Date.now()
+        }));
     }
     
-    // Process messages from client
+    // Process messages from client - see handleClientMessage function
     ws.on('message', async (message) => {
         try {
+            // Update last activity timestamp
             const connInfo = connections.get(ws);
             connInfo.lastActivity = new Date();
             connections.set(ws, connInfo);
             
             const parsedMessage = JSON.parse(message);
-            
-            // Special handler for sync requests
-            if (parsedMessage.type === 'request_sync') {
-                // Send current state for synchronization
-                ws.send(JSON.stringify({
-                    type: 'sync_response',
-                    data: {
-                        projects: projects
-                    },
-                    timestamp: Date.now()
-                }));
-                return;
-            }
-            
-            // Special handler for authentication
-            if (parsedMessage.type === 'authenticate') {
-                const sessionId = parsedMessage.data.sessionId;
-                const authenticated = parsedMessage.data.authenticated;
-                
-                const connInfo = connections.get(ws);
-                connInfo.authenticated = authenticated;
-                connInfo.sessionId = sessionId;
-                connections.set(ws, connInfo);
-                
-                ws.send(JSON.stringify({
-                    type: 'auth_status',
-                    data: {
-                        authenticated: authenticated
-                    },
-                    timestamp: Date.now()
-                }));
-                return;
-            }
-            
-            // Process normal messages
             await handleClientMessage(parsedMessage, ws);
         } catch (error) {
             console.error('Error processing client message:', error);
@@ -561,6 +931,63 @@ wss.on('connection', async (ws, req) => {
         connections.delete(ws);
     });
 });
+
+// Check if a client is authenticated for making changes
+function isClientAuthenticated(ws) {
+    // If login is not required for changes, all clients are "authenticated"
+    if (!securityConfig.requireLoginForChanges) {
+        return true;
+    }
+    
+    // Check if connection exists
+    if (!connections.has(ws)) {
+        return false;
+    }
+    
+    // Get connection info
+    const connInfo = connections.get(ws);
+    
+    // Check for authenticated flag
+    if (connInfo.authenticated) {
+        return true;
+    }
+    
+    // Check for session ID and match with authenticated sessions
+    if (connInfo.sessionId) {
+        // Try to get session from file store
+        try {
+            const sessionDir = './sessions';
+            const sessionFiles = fs.readdirSync(sessionDir);
+            
+            // Find session file that might contain this session ID
+            for (const file of sessionFiles) {
+                if (file.startsWith('sess:')) {
+                    try {
+                        const sessionData = fs.readFileSync(path.join(sessionDir, file), 'utf8');
+                        const sessionJson = JSON.parse(sessionData);
+                        
+                        // If session has authenticated flag and matches the connection's session ID
+                        if (sessionJson.authenticated && 
+                            (sessionJson.sessionId === connInfo.sessionId ||
+                             file.includes(connInfo.sessionId))) {
+                            // Update connection info
+                            connInfo.authenticated = true;
+                            connections.set(ws, connInfo);
+                            return true;
+                        }
+                    } catch (err) {
+                        // Ignore invalid session files
+                        continue;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error checking session files:', error);
+        }
+    }
+    
+    return false;
+}
 
 // Check if an IP address is allowed
 async function isAllowedIp(clientIp) {
@@ -620,232 +1047,9 @@ async function isAllowedIp(clientIp) {
     }
 }
 
-// Check if a client is authenticated for making changes
-function isClientAuthenticated(ws) {
-    // If login is not required for changes, all clients are "authenticated"
-    if (!securityConfig.requireLoginForChanges) {
-        return true;
-    }
-    
-    // Check client authentication status
-    if (connections.has(ws)) {
-        return connections.get(ws).authenticated;
-    }
-    
-    return false;
-}
-
-// Load projects from configuration file
-async function loadProjects() {
-    try {
-        const data = await fileManager.loadJson(PROJECTS_FILE);
-        if (data) {
-            projects = data;
-            console.log(`${Object.keys(projects).length} projects loaded`);
-        } else {
-            // Create empty project data if none exists
-            projects = {};
-            console.log('No projects found. Starting with empty project list.');
-            await saveProjects();
-        }
-    } catch (error) {
-        console.error('Error loading projects:', error);
-        // Create empty project file if it doesn't exist
-        try {
-            projects = {};
-            await fileManager.saveJson(PROJECTS_FILE, {});
-            console.log('Empty project file created');
-        } catch (err) {
-            console.error('Error creating project file:', err);
-        }
-    }
-}
-
-// Save projects to configuration file
-async function saveProjects() {
-    try {
-        await fileManager.saveJson(PROJECTS_FILE, projects);
-        console.log('Projects saved');
-        return true;
-    } catch (error) {
-        console.error('Error saving projects:', error);
-        return false;
-    }
-}
-
-// Create a backup of the projects file
-async function backupProjects() {
-    try {
-        const backupPath = `${PROJECTS_FILE}.backup-${Date.now()}`;
-        await fs.copyFile(PROJECTS_FILE, backupPath);
-        console.log(`Projects backup created: ${backupPath}`);
-        
-        // Delete old backups (keep last 5)
-        const dirPath = path.dirname(PROJECTS_FILE);
-        const files = await fs.readdir(dirPath);
-        
-        const backups = files
-            .filter(file => file.startsWith('projects.json.backup-'))
-            .map(file => path.join(dirPath, file))
-            .sort();
-            
-        // Delete older backups, keeping only the last 5
-        if (backups.length > 5) {
-            for (let i = 0; i < backups.length - 5; i++) {
-                await fs.unlink(backups[i]);
-                console.log(`Deleted old backup: ${backups[i]}`);
-            }
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('Error creating projects backup:', error);
-        return false;
-    }
-}
-
-// Send a message to all connected clients except the sender
-function broadcastMessage(message, exclude = null) {
-    const messageString = JSON.stringify(message);
-    
-    connections.forEach((info, client) => {
-        if (client !== exclude && client.readyState === WebSocket.OPEN) {
-            try {
-                // Speichere das letzte bekannte Projekt für diesen Client
-                if (message.type === 'update_project' && message.data && message.data.id) {
-                    if (!info.knownProjects) info.knownProjects = {};
-                    info.knownProjects[message.data.id] = calculateProjectHash(message.data);
-                }
-                
-                client.send(messageString);
-            } catch (err) {
-                console.error('Error sending broadcast message:', err);
-            }
-        }
-    });
-}
-
-// Send current projects to a client
-// Send current projects to a client
-function syncProjects(ws) {
-    if (ws.readyState !== WebSocket.OPEN) return;
-    
-    try {
-        const clientInfo = connections.get(ws);
-        if (!clientInfo) return;
-        
-        // Erst initiale Sync-Anfrage
-        if (!clientInfo.knownProjects) {
-            clientInfo.knownProjects = {};
-            
-            // Sende alle Projekte beim ersten Mal
-            ws.send(JSON.stringify({
-                type: 'sync_projects',
-                data: projects,
-                timestamp: Date.now()
-            }));
-            
-            // Speichere Hash für jedes Projekt
-            for (const [id, project] of Object.entries(projects)) {
-                clientInfo.knownProjects[id] = calculateProjectHash(project);
-            }
-            
-            return;
-        }
-        
-        // Inkrementelles Update - nur geänderte Projekte senden
-        const updatedProjects = {};
-        let updateCount = 0;
-        
-        for (const [id, project] of Object.entries(projects)) {
-            const currentHash = calculateProjectHash(project);
-            
-            // Wenn das Projekt neu ist oder sich geändert hat
-            if (!clientInfo.knownProjects[id] || clientInfo.knownProjects[id] !== currentHash) {
-                updatedProjects[id] = project;
-                clientInfo.knownProjects[id] = currentHash;
-                updateCount++;
-            }
-        }
-        
-        // Prüfen, ob Projekte gelöscht wurden
-        const deletedProjects = [];
-        for (const id in clientInfo.knownProjects) {
-            if (!projects[id]) {
-                deletedProjects.push(id);
-                delete clientInfo.knownProjects[id];
-            }
-        }
-        
-        // Nur senden, wenn es Änderungen gibt
-        if (updateCount > 0 || deletedProjects.length > 0) {
-            ws.send(JSON.stringify({
-                type: 'sync_updates',
-                data: {
-                    updated: updatedProjects,
-                    deleted: deletedProjects
-                },
-                timestamp: Date.now()
-            }));
-            
-            console.log(`Sent incremental update: ${updateCount} updated, ${deletedProjects.length} deleted`);
-        } else {
-            ws.send(JSON.stringify({
-                type: 'sync_unchanged',
-                timestamp: Date.now()
-            }));
-            
-            console.log('No project changes detected, sent unchanged notification');
-        }
-    } catch (err) {
-        console.error('Error sending projects sync:', err);
-    }
-}
-
-// Berechnet einen Hash für ein einzelnes Projekt
-function calculateProjectHash(project) {
-    try {
-        const json = JSON.stringify(project);
-        let hash = 0;
-        
-        for (let i = 0; i < json.length; i++) {
-            const char = json.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // Konvertiere zu 32bit Integer
-        }
-        
-        return hash.toString(36);
-    } catch (error) {
-        return Date.now().toString(36); // Fallback
-    }
-}
-
-// Berechne einen Hash/Fingerprint von Projekten
-function calculateProjectsHash(projects) {
-    // Einfache Hash-Berechnung durch JSON-String und Hashing
-    try {
-        const projectsJson = JSON.stringify(projects);
-        
-        // Erstelle einfachen Hash (fnv1a)
-        let hash = 0x811c9dc5; // FNV offset basis
-        for (let i = 0; i < projectsJson.length; i++) {
-            hash ^= projectsJson.charCodeAt(i);
-            hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-        }
-        
-        // Formatiere als Hex-String
-        return (hash >>> 0).toString(16);
-    } catch (error) {
-        console.error('Error calculating projects hash:', error);
-        // Fallback: Timestamp als "Hash" verwenden
-        return Date.now().toString(16);
-    }
-}
-
-
-// Process a client message
+// Process client message with improved authentication
 async function handleClientMessage(message, ws) {
-    // Grundlegende Nachrichtenprüfung
+    // Basic message validation
     if (!message || !message.type) {
         console.error('Invalid client message (missing type):', message);
         return;
@@ -853,16 +1057,16 @@ async function handleClientMessage(message, ws) {
     
     console.log('Client message received:', message.type);
     
-    // Spezielle Behandlung für Ping-Nachrichten
+    // Special handling for ping messages
     if (message.type === 'ping') {
-        // Aktualisiere lastActivity-Zeitstempel
+        // Update lastActivity timestamp
         if (connections.has(ws)) {
             const connInfo = connections.get(ws);
             connInfo.lastActivity = new Date();
             connections.set(ws, connInfo);
         }
         
-        // Sende Pong-Antwort
+        // Send pong response
         ws.send(JSON.stringify({
             type: 'pong',
             timestamp: Date.now()
@@ -870,7 +1074,7 @@ async function handleClientMessage(message, ws) {
         return;
     }
     
-    // Spezielle Behandlung für Authentifizierungsnachrichten
+    // Special handling for authentication messages
     if (message.type === 'authenticate') {
         const sessionId = message.data?.sessionId;
         const authenticated = message.data?.authenticated;
@@ -880,35 +1084,55 @@ async function handleClientMessage(message, ws) {
             connInfo.authenticated = authenticated;
             connInfo.sessionId = sessionId;
             connections.set(ws, connInfo);
+            
+            console.log(`Client ${sessionId} authentication status updated:`, authenticated);
         }
         
-        // Bestätigung senden
+        // Send confirmation
         ws.send(JSON.stringify({
             type: 'auth_status',
             data: {
-                authenticated: authenticated
-            },
-            timestamp: Date.now()
+                authenticated: authenticated,
+                timestamp: Date.now()
+            }
         }));
         return;
     }
     
-    // Für Synchronized-Anfragen
+    // For synchronization requests
     if (message.type === 'request_sync') {
         syncProjects(ws);
         return;
     }
     
-    // Für alle anderen Operationen prüfen wir, ob data vorhanden ist
+    // For all other operations, check if data is present
     if (!message.data) {
         console.error('Invalid client message (missing data):', message);
         return;
     }
     
-    // Rest der Funktion unverändert...
     // Check authentication for write operations
     const isWriteOperation = ['add_project', 'update_project', 'delete_project', 
                               'add_step', 'update_step', 'delete_step'].includes(message.type);
+    
+    if (isWriteOperation && securityConfig.requireLoginForChanges) {
+        const isAuthenticated = isClientAuthenticated(ws);
+        if (!isAuthenticated) {
+            console.log('Authentication required for operation:', message.type);
+            
+            // Send authentication error to client
+            ws.send(JSON.stringify({
+                type: 'error',
+                data: {
+                    message: 'Authentication required for this operation',
+                    code: 'AUTH_REQUIRED'
+                },
+                timestamp: Date.now()
+            }));
+            
+            return;
+        }
+    }
     
     // Process the message based on its type
     try {
@@ -1043,12 +1267,14 @@ async function handleClientMessage(message, ws) {
                         
                         // Update step
                         project.steps[stepIndex] = message.data;
+                        console.log(`Step ${message.data.id} updated in project ${message.data.projectId}, completed: ${message.data.completed}`);
                     } else {
                         // Add creation timestamp for new step
                         message.data.createdAt = new Date().toISOString();
                         
                         // Add step
                         project.steps.push(message.data);
+                        console.log(`New step ${message.data.id} added to project ${message.data.projectId}`);
                     }
                     
                     // Update project progress
@@ -1059,6 +1285,17 @@ async function handleClientMessage(message, ws) {
                     
                     // Broadcast to all clients
                     broadcastMessage(message, ws);
+                } else {
+                    console.error('Invalid update_step message:', message);
+                    
+                    ws.send(JSON.stringify({
+                        type: 'error',
+                        data: {
+                            message: 'Invalid or missing project ID',
+                            code: 'VALIDATION_ERROR'
+                        },
+                        timestamp: Date.now()
+                    }));
                 }
                 break;
                 
@@ -1090,14 +1327,6 @@ async function handleClientMessage(message, ws) {
                     }
                 }
                 break;
-                
-            case 'request_sync':
-                // Client requests synchronization
-                syncProjects(ws);
-                break;
-                
-            default:
-                console.warn('Unknown message type:', message.type);
         }
     } catch (error) {
         console.error(`Error processing ${message.type} message:`, error);
@@ -1113,215 +1342,6 @@ async function handleClientMessage(message, ws) {
         }));
     }
 }
-
-// Validate project data
-function isValidProject(project) {
-    // Required fields
-    if (!project.title) {
-        return false;
-    }
-    
-    // Valid status
-    const validStatuses = ['on-track', 'at-risk', 'delayed', 'completed'];
-    if (!validStatuses.includes(project.status)) {
-        return false;
-    }
-    
-    // Valid progress (0-100)
-    if (typeof project.progress !== 'number' || project.progress < 0 || project.progress > 100) {
-        return false;
-    }
-    
-    // Deadline format (if present)
-    if (project.deadline) {
-        const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-        if (!datePattern.test(project.deadline)) {
-            return false;
-        }
-    }
-// Team members (if present) must be an array
-if (project.team && !Array.isArray(project.team)) {
-    return false;
-}
-
-return true;
-}
-
-// Validate step data
-function isValidStep(step) {
-// Required fields
-if (!step.title || !step.projectId) {
-    return false;
-}
-
-// Completed status must be boolean
-if (typeof step.completed !== 'boolean') {
-    return false;
-}
-
-return true;
-}
-
-// Generate a unique ID
-function generateUniqueId() {
-return uuidv4();
-}
-
-// Update project progress based on steps
-function updateProjectProgress(project) {
-if (!project || !project.steps || project.steps.length === 0) return;
-
-// Calculate percentage of completed steps
-const completedSteps = project.steps.filter(step => step.completed).length;
-const totalSteps = project.steps.length;
-const progressPercentage = Math.round((completedSteps / totalSteps) * 100);
-
-// Update project progress
-project.progress = progressPercentage;
-
-// Update project status based on progress
-updateProjectStatus(project);
-
-// Update next step
-updateNextStep(project);
-}
-
-// Update project status based on progress and deadline
-function updateProjectStatus(project) {
-if (!project) return;
-
-// If all steps are completed, set status to "completed"
-if (project.progress === 100) {
-    project.status = 'completed';
-    return;
-}
-
-// Check if deadline has passed
-if (project.deadline) {
-    const deadlineDate = new Date(project.deadline);
-    const today = new Date();
-    
-    if (deadlineDate < today) {
-        project.status = 'delayed';
-        return;
-    }
-    
-    // Check if deadline is less than 7 days away and progress < 70%
-    const diffTime = deadlineDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays <= 7 && project.progress < 70) {
-        project.status = 'at-risk';
-        return;
-    }
-}
-
-// Default: On Track
-if (project.status !== 'at-risk' && project.status !== 'delayed') {
-    project.status = 'on-track';
-}
-}
-
-// Update next step for a project
-function updateNextStep(project) {
-if (!project || !project.steps || project.steps.length === 0) return;
-
-// Find the first incomplete step
-const nextStep = project.steps.find(step => !step.completed);
-
-if (nextStep) {
-    project.nextStep = nextStep.title;
-} else {
-    project.nextStep = 'All steps completed';
-}
-}
-
-// Check if an IP is in a CIDR range
-function isIpInCidrRange(ip, cidr) {
-try {
-    const [range, bits] = cidr.split('/');
-    const mask = parseInt(bits, 10);
-    
-    // Convert IP address to integer
-    const ipInt = ipToInt(ip);
-    const rangeInt = ipToInt(range);
-    
-    // Calculate network address and broadcast address
-    const shiftBits = 32 - mask;
-    const netmask = ((1 << mask) - 1) << shiftBits;
-    const networkAddr = rangeInt & netmask;
-    const broadcastAddr = networkAddr | ((1 << shiftBits) - 1);
-    
-    // Check if IP is in range
-    return ipInt >= networkAddr && ipInt <= broadcastAddr;
-} catch (error) {
-    console.error('Error checking CIDR range:', error);
-    return false;
-}
-}
-
-// Convert an IP address to an integer
-function ipToInt(ip) {
-try {
-    return ip.split('.')
-        .reduce((int, octet) => (int << 8) + parseInt(octet, 10), 0) >>> 0;
-} catch (error) {
-    console.error('Error converting IP to int:', error);
-    return 0;
-}
-}
-
-// Periodic cleanup of inactive connections
-setInterval(() => {
-const now = new Date();
-const inactiveTimeout = 30 * 60 * 1000; // 30 minutes
-
-connections.forEach((info, client) => {
-    if (now - info.lastActivity > inactiveTimeout) {
-        // Close inactive connection
-        console.log(`Closing inactive connection from ${info.ip}`);
-        client.close(1000, 'Inactivity timeout');
-        connections.delete(client);
-    }
-});
-}, 5 * 60 * 1000); // Check every 5 minutes
-
-// Create a complete backup of all projects daily
-setInterval(async () => {
-try {
-    const backupPath = path.join(CONFIG_PATH, 'backups');
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupFile = path.join(backupPath, `projects-backup-${timestamp}.json`);
-    
-    // Create backups directory if it doesn't exist
-    await fs.mkdir(backupPath, { recursive: true });
-    
-    // Copy current projects file
-    const projectsData = await fs.readFile(PROJECTS_FILE, 'utf8');
-    await fs.writeFile(backupFile, projectsData);
-    
-    console.log(`Daily backup created: ${backupFile}`);
-    
-    // Delete backups older than 30 days
-    const files = await fs.readdir(backupPath);
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    
-    for (const file of files) {
-        if (file.startsWith('projects-backup-')) {
-            const filePath = path.join(backupPath, file);
-            const stats = await fs.stat(filePath);
-            
-            if (stats.mtime < thirtyDaysAgo) {
-                await fs.unlink(filePath);
-                console.log(`Deleted old backup: ${filePath}`);
-            }
-        }
-    }
-} catch (error) {
-    console.error('Error creating daily backup:', error);
-}
-}, 24 * 60 * 60 * 1000); // Run once a day
 
 // Export for testing
 module.exports = { app, server, wss };

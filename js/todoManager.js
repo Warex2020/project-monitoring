@@ -238,68 +238,82 @@ const TodoManager = (() => {
      * @returns {Object|null} - Der aktualisierte Schritt oder null bei Fehler
      */
     const updateStep = (projectId, updatedStep) => {
-        if (!projectId || !updatedStep || !updatedStep.id) return null;
+        if (!projectId || !updatedStep || !updatedStep.id) {
+            console.error("updateStep called with invalid parameters:", { projectId, updatedStep });
+            return null;
+        }
         
         try {
-            // Projekt-ID zum Schritt hinzufügen
+            console.log(`Updating step ${updatedStep.id} in project ${projectId}`);
+            
+            // Stelle sicher, dass die projectId im Step korrekt ist
             updatedStep.projectId = projectId;
             
-            // Validieren
-            if (!validateStep(updatedStep)) {
-                console.error('Ungültiger Schrittformat:', updatedStep);
-                showError('Schritt konnte nicht aktualisiert werden: Ungültiges Format');
-                return null;
-            }
-            
-            // Normalisieren
-            const normalizedStep = normalizeStep(updatedStep);
-            
             // Hole das Projekt
-            const project = typeof ProjectManager !== 'undefined' && ProjectManager.getProject
-                ? ProjectManager.getProject(projectId)
-                : null;
+            let project = null;
+            if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.getProject === 'function') {
+                project = ProjectManager.getProject(projectId);
+            }
                 
-            if (!project || !project.steps) {
-                console.error(`Projekt mit ID ${projectId} nicht gefunden oder keine Schritte`);
-                showError('Schritt konnte nicht aktualisiert werden: Projekt nicht gefunden');
+            if (!project) {
+                console.error(`Project with ID ${projectId} not found`);
                 return null;
             }
             
-            // Finde den Schritt
-            const stepIndex = project.steps.findIndex(step => step.id === normalizedStep.id);
+            if (!project.steps) {
+                console.error(`Project with ID ${projectId} has no steps array`);
+                project.steps = [];
+            }
+            
+            // Finde den Index des Schritts
+            const stepIndex = project.steps.findIndex(step => step.id === updatedStep.id);
+            
             if (stepIndex === -1) {
-                console.error(`Schritt mit ID ${normalizedStep.id} nicht gefunden`);
-                showError('Schritt konnte nicht aktualisiert werden: Schritt nicht gefunden');
+                console.error(`Step with ID ${updatedStep.id} not found in project ${projectId}`);
                 return null;
             }
             
-            // Prüfen, ob der Schritt als abgeschlossen markiert wurde
+            // Speichere wichtige Werte
             const wasComplete = project.steps[stepIndex].completed;
-            const isNowComplete = normalizedStep.completed;
+            const isNowComplete = updatedStep.completed;
             
-            // Aktualisiere den Schritt
-            project.steps[stepIndex] = normalizedStep;
+            // Aktualisiere nur die angegebenen Werte, behalte den Rest
+            const originalStep = project.steps[stepIndex];
+            const mergedStep = {
+                ...originalStep,
+                ...updatedStep,
+                updatedAt: new Date().toISOString()
+            };
+            
+            // Aktualisiere den Schritt im Projekt
+            project.steps[stepIndex] = mergedStep;
+            
+            console.log("Updated step in project:", mergedStep);
             
             // Aktualisiere das Projekt
-            if (typeof ProjectManager !== 'undefined' && ProjectManager.updateProject) {
+            if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.updateProject === 'function') {
                 ProjectManager.updateProject(project);
-            } else {
-                // Fortschritt manuell aktualisieren, wenn ProjectManager nicht verfügbar
-                updateProjectProgress(project);
+                console.log("Project updated via ProjectManager");
             }
             
-            // Ereignis auslösen
-            triggerEvent('step-updated', normalizedStep);
-            
-            // Spezielles Ereignis, wenn der Schritt abgeschlossen wurde
-            if (!wasComplete && isNowComplete) {
-                triggerEvent('step-completed', normalizedStep);
+            // Aktualisiere UI-Element wenn vorhanden
+            const stepElement = document.querySelector(`.step-item[data-step-id="${updatedStep.id}"]`);
+            if (stepElement) {
+                console.log("Updating step UI element");
+                if (mergedStep.completed) {
+                    stepElement.classList.add('step-completed');
+                    const checkbox = stepElement.querySelector('.step-checkbox');
+                    if (checkbox) checkbox.setAttribute('aria-checked', 'true');
+                } else {
+                    stepElement.classList.remove('step-completed');
+                    const checkbox = stepElement.querySelector('.step-checkbox');
+                    if (checkbox) checkbox.setAttribute('aria-checked', 'false');
+                }
             }
             
-            return normalizedStep;
+            return mergedStep;
         } catch (error) {
-            console.error('Fehler beim Aktualisieren des Schritts:', error);
-            showError('Schritt konnte nicht aktualisiert werden');
+            console.error(`Error in updateStep(${projectId}, ${updatedStep?.id}):`, error);
             return null;
         }
     };
@@ -363,18 +377,42 @@ const TodoManager = (() => {
      * @returns {Object|null} - Der Schritt oder null, wenn nicht gefunden
      */
     const getStep = (projectId, stepId) => {
-        if (!projectId || !stepId) return null;
+        if (!projectId || !stepId) {
+            console.error("getStep called with invalid parameters:", { projectId, stepId });
+            return null;
+        }
         
-        // Hole das Projekt
-        const project = typeof ProjectManager !== 'undefined' && ProjectManager.getProject
-            ? ProjectManager.getProject(projectId)
-            : null;
+        try {
+            // Hole das Projekt
+            let project = null;
+            if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.getProject === 'function') {
+                project = ProjectManager.getProject(projectId);
+            }
+                
+            if (!project) {
+                console.error(`Project with ID ${projectId} not found`);
+                return null;
+            }
             
-        if (!project || !project.steps) return null;
-        
-        // Finde und gib den Schritt zurück
-        return project.steps.find(step => step.id === stepId) || null;
+            if (!project.steps) {
+                console.error(`Project with ID ${projectId} has no steps array`);
+                return null;
+            }
+            
+            // Finde und gib den Schritt zurück
+            const step = project.steps.find(step => step.id === stepId);
+            if (!step) {
+                console.error(`Step with ID ${stepId} not found in project ${projectId}`);
+                return null;
+            }
+            
+            return step;
+        } catch (error) {
+            console.error(`Error in getStep(${projectId}, ${stepId}):`, error);
+            return null;
+        }
     };
+    
 
     /**
      * Gibt alle Schritte eines Projekts zurück

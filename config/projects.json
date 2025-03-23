@@ -171,10 +171,11 @@
     "title": "Helpdesk System Upgrade",
     "status": "delayed",
     "progress": 40,
-    "nextStep": "Complete system customization",
+    "nextStep": "Data migration",
     "team": [
       "Robert",
-      "Elena"
+      "Elena",
+      "Test"
     ],
     "deadline": "2025-03-10",
     "steps": [
@@ -183,28 +184,32 @@
         "projectId": "p004",
         "title": "Requirements gathering",
         "description": "Collect requirements from helpdesk team and users",
-        "completed": true
+        "completed": false,
+        "updatedAt": "2025-03-23T19:15:20.365Z"
       },
       {
         "id": "s020",
         "projectId": "p004",
         "title": "System customization",
         "description": "Customize the system to match company workflows",
-        "completed": false
+        "completed": true,
+        "updatedAt": "2025-03-23T19:09:36.273Z"
       },
       {
         "id": "s019",
         "projectId": "p004",
         "title": "System evaluation",
         "description": "Evaluate available helpdesk solutions",
-        "completed": true
+        "completed": true,
+        "updatedAt": "2025-03-23T19:09:38.064Z"
       },
       {
         "id": "s021",
         "projectId": "p004",
         "title": "Data migration",
         "description": "Migrate existing tickets and knowledge base",
-        "completed": false
+        "completed": false,
+        "updatedAt": "2025-03-23T19:10:07.017Z"
       },
       {
         "id": "s022",
@@ -221,6 +226,17 @@
         "completed": false
       },
       {
+        "id": "m8lkwo1p79dal",
+        "projectId": "p004",
+        "title": "Testen",
+        "description": "",
+        "completed": false,
+        "priority": "medium",
+        "updatedAt": "2025-03-23T11:52:54.973Z",
+        "createdAt": "2025-03-23T11:52:54.973Z",
+        "tags": []
+      },
+      {
         "id": "m8linfimb2wjk",
         "projectId": "p004",
         "title": "bjgvghfvhj",
@@ -231,7 +247,7 @@
         "tags": []
       }
     ],
-    "updatedAt": "2025-03-23T10:50:26.884Z"
+    "updatedAt": "2025-03-23T19:15:41.173Z"
   },
   "p005": {
     "id": "p005",

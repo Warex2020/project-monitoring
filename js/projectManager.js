@@ -600,33 +600,103 @@ const ProjectManager = (() => {
      * @param {Object} project - Projektdaten
      */
     const renderProjectSteps = (projectElement, project) => {
+        console.log(`Rendering steps for project ${project.id}`);
+        
         const stepsContainer = projectElement.querySelector('.project-steps');
+        if (!stepsContainer) {
+            console.error('Steps container not found in project element');
+            return;
+        }
         
         // Prüfe, ob Schritte vorhanden sind
         if (!project.steps || project.steps.length === 0) {
+            console.log(`No steps found for project ${project.id}`);
+            
             // Zeige Leermeldung
-            stepsContainer.querySelector('.steps-empty-message').style.display = 'block';
+            const emptyMessage = stepsContainer.querySelector('.steps-empty-message');
+            if (emptyMessage) {
+                emptyMessage.style.display = 'block';
+            }
             
             // ARIA für Screenreader
             stepsContainer.setAttribute('aria-label', 'Keine Schritte vorhanden');
             return;
         }
         
+        console.log(`Found ${project.steps.length} steps for project ${project.id}`);
+        
         // Verstecke Leermeldung
-        stepsContainer.querySelector('.steps-empty-message').style.display = 'none';
+        const emptyMessage = stepsContainer.querySelector('.steps-empty-message');
+        if (emptyMessage) {
+            emptyMessage.style.display = 'none';
+        }
         
         // ARIA für Screenreader
         stepsContainer.setAttribute('aria-label', `${project.steps.length} Schritte`);
         
-        // Leere Container
-        Array.from(stepsContainer.querySelectorAll('.step-item')).forEach(step => step.remove());
-        
-        // Füge Schritte hinzu
+        // Versuche existierende Schritte zu aktualisieren statt alle neu zu erstellen
         project.steps.forEach(step => {
-            const stepElement = createStepElement(step);
-            stepsContainer.appendChild(stepElement);
+            if (!step || !step.id) {
+                console.error('Invalid step object:', step);
+                return;
+            }
+            
+            try {
+                // Prüfe, ob Step-Element bereits existiert
+                let stepElement = stepsContainer.querySelector(`.step-item[data-step-id="${step.id}"]`);
+                
+                if (stepElement) {
+                    // Aktualisiere bestehendes Element
+                    updateStepElement(stepElement, step);
+                } else {
+                    // Erstelle neues Element
+                    stepElement = createStepElement(step);
+                    stepsContainer.appendChild(stepElement);
+                }
+            } catch (error) {
+                console.error('Error updating/creating step element:', error);
+            }
+        });
+        
+        // Entferne Schritte, die nicht mehr im Projekt sind
+        const existingStepElements = stepsContainer.querySelectorAll('.step-item');
+        existingStepElements.forEach(element => {
+            const stepId = element.dataset.stepId;
+            if (!project.steps.some(step => step.id === stepId)) {
+                element.remove();
+            }
         });
     };
+
+    /**
+     * Hilfsfunktion zum Aktualisieren eines bestehenden Schritt-Elements
+     */
+    const updateStepElement = (stepElement, step) => {
+        // Completed-Status aktualisieren
+        if (step.completed) {
+            stepElement.classList.add('step-completed');
+        } else {
+            stepElement.classList.remove('step-completed');
+        }
+        
+        // Checkbox aktualisieren
+        const checkbox = stepElement.querySelector('.step-checkbox');
+        if (checkbox) {
+            checkbox.setAttribute('aria-checked', step.completed ? 'true' : 'false');
+        }
+        
+        // Titel und Beschreibung aktualisieren
+        const titleElement = stepElement.querySelector('.step-title');
+        if (titleElement) {
+            titleElement.textContent = step.title || '';
+        }
+        
+        const descriptionElement = stepElement.querySelector('.step-description');
+        if (descriptionElement) {
+            descriptionElement.textContent = step.description || '';
+        }
+    };
+
 
     /**
      * Erstellt ein Schritt-Element
@@ -654,11 +724,11 @@ const ProjectManager = (() => {
         stepElement.innerHTML = `
             <div class="step-checkbox" role="checkbox" aria-checked="${step.completed}" tabindex="0"></div>
             <div class="step-content">
-                <div class="step-title">${escapeHTML(step.title)}</div>
+                <div class="step-title">${escapeHTML(step.title || '')}</div>
                 <div class="step-description">${escapeHTML(step.description || '')}</div>
             </div>
             <div class="step-actions">
-                <span class="edit-step-icon" data-tooltip="Schritt bearbeiten">✏️</span>
+                <button class="edit-step-icon" data-tooltip="Schritt bearbeiten" aria-label="Schritt bearbeiten">✏️</button>
             </div>
         `;
         
@@ -710,7 +780,22 @@ const ProjectManager = (() => {
      * @param {Object} updatedProject - Aktualisierte Projektdaten
      */
     const updateProject = (updatedProject) => {
-        if (!updatedProject || !updatedProject.id) return;
+        if (!updatedProject || !updatedProject.id) {
+            console.error('Invalid project data for update:', updatedProject);
+            return;
+        }
+        
+        console.log(`Updating project ${updatedProject.id}`);
+        
+        // Check if project object actually changed
+        const existingProject = projects[updatedProject.id];
+        const projectsEqual = existingProject && 
+                             JSON.stringify(existingProject) === JSON.stringify(updatedProject);
+        
+        if (projectsEqual) {
+            console.log(`Project ${updatedProject.id} unchanged, skipping update`);
+            return existingProject;
+        }
         
         // Aktualisiere Projekt im Speicher
         projects[updatedProject.id] = updatedProject;
@@ -722,10 +807,14 @@ const ProjectManager = (() => {
         if (projectElement) {
             // Nur dieses spezifische Projekt aktualisieren, nicht alle neu rendern
             renderSingleProject(updatedProject, projectElement, wasExpanded);
+            console.log(`Project ${updatedProject.id} UI updated`);
         } else {
             // Neues Projekt, einfach hinzufügen
             renderProject(updatedProject);
+            console.log(`Project ${updatedProject.id} rendered as new`);
         }
+        
+        return updatedProject;
     };
 
     /**
@@ -735,6 +824,8 @@ const ProjectManager = (() => {
      * @param {boolean} wasExpanded - War die Projektkarte expandiert
      */
     const renderSingleProject = (project, element, wasExpanded) => {
+        console.log(`Rendering single project ${project.id}, expanded: ${wasExpanded}`);
+        
         // Nur die spezifischen Teile der Projektkarte aktualisieren
         element.querySelector('.project-title').textContent = project.title;
         
@@ -753,6 +844,13 @@ const ProjectManager = (() => {
         progressPercentage.textContent = `${project.progress}%`;
         progressValue.style.width = `${project.progress}%`;
         
+        // ARIA-Attribute für den Progressbar aktualisieren
+        const progressBar = element.querySelector('.progress-bar');
+        if (progressBar) {
+            progressBar.setAttribute('aria-valuenow', project.progress);
+            progressBar.setAttribute('aria-label', `Fortschritt: ${project.progress}%`);
+        }
+        
         // Nächsten Schritt aktualisieren
         element.querySelector('.next-step-description').textContent = 
             project.nextStep || 'Kein nächster Schritt definiert';
@@ -763,15 +861,17 @@ const ProjectManager = (() => {
         
         // Schritte aktualisieren
         const stepsContainer = element.querySelector('.project-steps');
-        renderProjectSteps(element, project);
+        if (stepsContainer) {
+            renderProjectSteps(element, project);
         
-        // Expanded-Status wiederherstellen
-        if (wasExpanded) {
-            element.classList.add('expanded');
-            stepsContainer.classList.add('active');
-            stepsContainer.style.maxHeight = stepsContainer.scrollHeight + 40 + 'px';
-            stepsContainer.style.padding = '20px';
-            stepsContainer.style.marginTop = '25px';
+            // Expanded-Status wiederherstellen
+            if (wasExpanded) {
+                element.classList.add('expanded');
+                stepsContainer.classList.add('active');
+                stepsContainer.style.maxHeight = stepsContainer.scrollHeight + 40 + 'px';
+                stepsContainer.style.padding = '20px';
+                stepsContainer.style.marginTop = '25px';
+            }
         }
     };
 

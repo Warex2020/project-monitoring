@@ -15,7 +15,7 @@ const EnhancedUI = (() => {
     let isDragging = false;
     let draggedElement = null;
     let hideCompleted = false;
-    let currentSort = {field: 'deadline', direction: 'asc'};
+    let currentSort = {field: 'title', direction: 'asc'};
     let currentFilter = null;
     
     // Initializes enhanced UI functions
@@ -46,12 +46,16 @@ const EnhancedUI = (() => {
             });
         }
         
+        // Setze die Standardsortierung nach Namen (Titel)
         if (sortSelect) {
-            sortSelect.addEventListener('change', () => {
-                const [field, direction] = sortSelect.value.split('-');
-                currentSort = {field, direction};
-                applySort();
-            });
+            // Setze den Standardwert im Dropdown-Menü
+            sortSelect.value = 'title-asc';
+            
+            // Setze die aktuelle Sortierung
+            currentSort = {field: 'title', direction: 'asc'};
+            
+            // Wende die Sortierung sofort an
+            applySort();
         }
         
         if (hideCompletedCheckbox) {
@@ -148,6 +152,11 @@ const EnhancedUI = (() => {
     
     // Handler for drag start (mouse)
     const handleDragStart = (e) => {
+        // Wenn auf eine Checkbox geklickt wurde, nicht draggen
+        if (e.target.classList.contains('step-checkbox')) {
+            return;
+        }
+        
         // Only steps are draggable, not the projects themselves
         const stepItem = e.target.closest('.step-item');
         if (!stepItem) return;
@@ -181,8 +190,14 @@ const EnhancedUI = (() => {
         updateDragGhostPosition(e.clientX, e.clientY);
     };
     
+    
     // Handler for touch start (touch devices)
     const handleTouchStart = (e) => {
+        // Wenn auf eine Checkbox getippt wurde, nicht draggen
+        if (e.target.classList.contains('step-checkbox')) {
+            return;
+        }
+        
         const stepItem = e.target.closest('.step-item');
         if (!stepItem) return;
         
@@ -892,6 +907,16 @@ const EnhancedUI = (() => {
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         EnhancedUI.init();
-    }, 1000); // Wait for other modules to initialize
+        
+        // Du könntest hier auch die initiale Sortierung erzwingen
+        const sortSelect = document.getElementById('project-sort');
+        if (sortSelect) {
+            sortSelect.value = 'title-asc'; // Setze die Default-Sortierung
+            
+            // Trigger die Sortierung
+            if (typeof EnhancedUI.applyCurrentSort === 'function') {
+                EnhancedUI.applyCurrentSort();
+            }
+        }
+    }, 1000);
 });
-

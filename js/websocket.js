@@ -523,6 +523,11 @@ function sendWebSocketMessage(type, data, queueIfOffline = true) {
  * Processes incoming WebSocket messages
  * @param {Object} message - Message to process
  */
+/**
+ * Diesen Code in websocket.js hinzufügen/aktualisieren
+ * Finde die Funktion handleWebSocketMessage und erweitere sie
+ */
+
 function handleWebSocketMessage(message) {
     if (!message || !message.type) {
         console.error('Invalid WebSocket message:', message);
@@ -550,28 +555,181 @@ function handleWebSocketMessage(message) {
             }
             break;
             
+        case 'add_step':
+            if (message.data && message.data.projectId) {
+                console.log('Processing add_step message:', message.data);
+                if (typeof TodoManager !== 'undefined' && typeof TodoManager.addStep === 'function') {
+                    TodoManager.addStep(message.data.projectId, message.data);
+                } else if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.getProject === 'function') {
+                    // Fallback: Update the step directly in the project
+                    updateStepInProject(message.data.projectId, message.data);
+                }
+            }
+            break;
+            
+        case 'update_step':
+            if (message.data && message.data.projectId) {
+                console.log('Processing update_step message:', message.data);
+                if (typeof TodoManager !== 'undefined' && typeof TodoManager.updateStep === 'function') {
+                    TodoManager.updateStep(message.data.projectId, message.data);
+                } else if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.getProject === 'function') {
+                    // Fallback: Update the step directly in the project
+                    updateStepInProject(message.data.projectId, message.data);
+                }
+                
+                // Direct UI update for immediate feedback
+                updateStepUI(message.data);
+            }
+            break;
+            
+        case 'delete_step':
+            if (message.data && message.data.projectId && message.data.id) {
+                console.log('Processing delete_step message');
+                if (typeof TodoManager !== 'undefined' && typeof TodoManager.deleteStep === 'function') {
+                    TodoManager.deleteStep(message.data.projectId, message.data.id);
+                } else if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.getProject === 'function') {
+                    // Fallback: Delete the step directly from the project
+                    deleteStepFromProject(message.data.projectId, message.data.id);
+                }
+            }
+            break;
+            
         case 'sync_projects':
-            // Vollsynchronisierung - alle Projekte ersetzen
+            // Full synchronization - replace all projects
             handleFullProjectSync(message.data);
             break;
             
         case 'sync_updates':
-            // Inkrementelle Synchronisierung - nur geänderte Projekte
+            // Incremental synchronization - only changed projects
             handleIncrementalSync(message.data);
             break;
             
         case 'sync_unchanged':
-            // Keine Änderungen - nichts tun
+            // No changes - do nothing
             console.log('Projects unchanged, no UI update needed');
             break;
-            
-        // andere Fälle...
     }
     
     // Update UI based on current authentication status
     if (typeof AuthManager !== 'undefined' && typeof AuthManager.updateUI === 'function') {
         AuthManager.updateUI();
     }
+}
+
+/**
+ * Helper function to update a step directly in a project
+ */
+function updateStepInProject(projectId, stepData) {
+    console.log(`Directly updating step ${stepData.id} in project ${projectId}`);
+    
+    if (!projectId || !stepData || !stepData.id) {
+        console.error('Invalid project or step data for update');
+        return;
+    }
+    
+    const project = ProjectManager.getProject(projectId);
+    if (!project) {
+        console.error(`Project ${projectId} not found`);
+        return;
+    }
+    
+    if (!project.steps) {
+        project.steps = [];
+    }
+    
+    // Find the step index
+    const stepIndex = project.steps.findIndex(step => step.id === stepData.id);
+    if (stepIndex >= 0) {
+        // Update existing step
+        // Keep created timestamp if it exists
+        const createdAt = project.steps[stepIndex].createdAt;
+        stepData.createdAt = createdAt || stepData.createdAt || new Date().toISOString();
+        
+        // Update the step
+        project.steps[stepIndex] = stepData;
+    } else {
+        // Add new step
+        if (!stepData.createdAt) {
+            stepData.createdAt = new Date().toISOString();
+        }
+        project.steps.push(stepData);
+    }
+    
+    // Update project in state
+    ProjectManager.updateProject(project);
+}
+
+/**
+ * Helper function to delete a step directly from a project
+ */
+function deleteStepFromProject(projectId, stepId) {
+    console.log(`Directly deleting step ${stepId} from project ${projectId}`);
+    
+    if (!projectId || !stepId) {
+        console.error('Invalid project or step ID for deletion');
+        return;
+    }
+    
+    const project = ProjectManager.getProject(projectId);
+    if (!project || !project.steps) {
+        console.error(`Project ${projectId} not found or has no steps`);
+        return;
+    }
+    
+    // Find and remove the step
+    const stepIndex = project.steps.findIndex(step => step.id === stepId);
+    if (stepIndex >= 0) {
+        project.steps.splice(stepIndex, 1);
+        
+        // Update project in state
+        ProjectManager.updateProject(project);
+    }
+}
+
+/**
+ * Direct UI update for steps
+ * This is used for immediate feedback when a step is updated by other clients
+ */
+function updateStepUI(stepData) {
+    if (!stepData || !stepData.id) {
+        console.error('Invalid step data for UI update');
+        return;
+    }
+    
+    console.log(`Directly updating UI for step ${stepData.id}`);
+    
+    // Find the step element
+    const stepElement = document.querySelector(`.step-item[data-step-id="${stepData.id}"]`);
+    if (!stepElement) {
+        console.log(`Step element with ID ${stepData.id} not found in DOM`);
+        return;
+    }
+    
+    // Update completed status
+    const checkbox = stepElement.querySelector('.step-checkbox');
+    if (checkbox) {
+        checkbox.setAttribute('aria-checked', stepData.completed ? 'true' : 'false');
+    }
+    
+    // Update title and description if changed
+    const titleElement = stepElement.querySelector('.step-title');
+    if (titleElement && stepData.title) {
+        titleElement.textContent = stepData.title;
+    }
+    
+    const descriptionElement = stepElement.querySelector('.step-description');
+    if (descriptionElement && stepData.description) {
+        descriptionElement.textContent = stepData.description;
+    }
+    
+    // Update CSS class for completed status
+    if (stepData.completed) {
+        stepElement.classList.add('step-completed');
+    } else {
+        stepElement.classList.remove('step-completed');
+    }
+    
+    console.log(`UI updated for step ${stepData.id}`);
 }
 
 /**
@@ -826,6 +984,67 @@ document.addEventListener('visibilitychange', () => {
         }
     }
 });
+
+
+// Debug-Helfer für WebSocket-Nachrichten
+(function() {
+    // Speichere die originale sendWebSocketMessage-Funktion
+    const originalSendMessage = window.sendWebSocketMessage;
+    
+    // Überschreibe die Funktion mit einer Debug-Version
+    window.sendWebSocketMessage = function(type, data, queueIfOffline = true) {
+        console.log('WebSocket Send Attempt:', { type, data });
+        
+        // Prüfe, ob die Verbindung offen ist
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+            console.warn('WebSocket not open! ReadyState:', socket ? socket.readyState : 'No socket');
+        }
+        
+        // Rufe die originale Funktion auf
+        const result = originalSendMessage(type, data, queueIfOffline);
+        
+        console.log('Send result:', result);
+        return result;
+    };
+    
+    // Direkter Log für das nächste WebSocket-Message-Event
+    if (socket) {
+        const originalOnMessage = socket.onmessage;
+        socket.onmessage = function(event) {
+            try {
+                const message = JSON.parse(event.data);
+                console.log('WebSocket received:', message);
+            } catch (e) {
+                console.log('WebSocket received raw data:', event.data);
+            }
+            
+            // Originalen Handler aufrufen
+            if (originalOnMessage) {
+                originalOnMessage.call(this, event);
+            }
+        };
+        
+        console.log('WebSocket debug listeners installed');
+    } else {
+        console.warn('Could not install WebSocket debug listeners: Socket not available');
+    }
+    
+    // Prüfen, ob Authentifizierung richtig funktioniert
+    setTimeout(() => {
+        if (typeof AuthManager !== 'undefined') {
+            console.log('Auth status:', {
+                isAuthenticated: AuthManager.isAuthenticated ? AuthManager.isAuthenticated() : 'function not available',
+                isAuthRequired: AuthManager.isAuthRequired ? AuthManager.isAuthRequired() : 'function not available',
+                username: AuthManager.getUsername ? AuthManager.getUsername() : 'function not available'
+            });
+        }
+        
+        // Verbindungsstatus prüfen
+        console.log('WebSocket connected:', isWebSocketConnected());
+    }, 2000);
+    
+    console.log('WebSocket debug helpers installed');
+})();
 
 // Expose functions globally
 window.connectWebSocket = connectWebSocket;
