@@ -168,7 +168,7 @@
   },
   "p004": {
     "id": "p004",
-    "title": "Helpdesk System Upgrade",
+    "title": "Helpdesk System Upgrade-> Update",
     "status": "delayed",
     "progress": 40,
     "nextStep": "Data migration",
@@ -192,16 +192,16 @@
         "projectId": "p004",
         "title": "System customization",
         "description": "Customize the system to match company workflows",
-        "completed": true,
-        "updatedAt": "2025-03-23T19:09:36.273Z"
+        "completed": false,
+        "updatedAt": "2025-03-23T19:26:29.492Z"
       },
       {
         "id": "s019",
         "projectId": "p004",
         "title": "System evaluation",
         "description": "Evaluate available helpdesk solutions",
-        "completed": true,
-        "updatedAt": "2025-03-23T19:09:38.064Z"
+        "completed": false,
+        "updatedAt": "2025-03-23T19:26:31.202Z"
       },
       {
         "id": "s021",
@@ -247,7 +247,7 @@
         "tags": []
       }
     ],
-    "updatedAt": "2025-03-23T19:15:41.173Z"
+    "updatedAt": "2025-03-23T19:31:55.939Z"
   },
   "p005": {
     "id": "p005",

@@ -107,7 +107,7 @@ docker compose down
 
 # Cache bereinigen (optional)
 #echo -e "${YELLOW}Bereinige Docker-Cache...${NC}"
-#docker system prune -f
+docker system prune -f
 
 # Container neu bauen
 echo -e "${YELLOW}Baue Container neu...${NC}"

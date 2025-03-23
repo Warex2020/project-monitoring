@@ -1,6 +1,6 @@
 /**
  * authManager.js - Manages authentication for the dashboard
- * Version 1.2.0 - Improved session handling and UI synchronization
+ * Version 1.2.1 - Improved session handling and UI synchronization
  */
 
 const AuthManager = (() => {

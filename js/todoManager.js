@@ -1,6 +1,6 @@
 /**
  * todoManager.js - Verwaltet Todo/Schritte in den Projekten
- * Version 2.0.0 - Mit Datenvalidierung und erweiterten Funktionen
+ * Version 2.0.1 - Mit Datenvalidierung und erweiterten Funktionen
  */
 
 const TodoManager = (() => {
@@ -297,24 +297,55 @@ const TodoManager = (() => {
             }
             
             // Aktualisiere UI-Element wenn vorhanden
-            const stepElement = document.querySelector(`.step-item[data-step-id="${updatedStep.id}"]`);
-            if (stepElement) {
-                console.log("Updating step UI element");
-                if (mergedStep.completed) {
-                    stepElement.classList.add('step-completed');
-                    const checkbox = stepElement.querySelector('.step-checkbox');
-                    if (checkbox) checkbox.setAttribute('aria-checked', 'true');
-                } else {
-                    stepElement.classList.remove('step-completed');
-                    const checkbox = stepElement.querySelector('.step-checkbox');
-                    if (checkbox) checkbox.setAttribute('aria-checked', 'false');
-                }
+            updateStepUI(mergedStep);
+            
+            // Event auslösen, wenn sich der Abschluss-Status geändert hat
+            if (wasComplete !== isNowComplete) {
+                triggerEvent('step-completed', {
+                    step: mergedStep,
+                    completed: isNowComplete
+                });
+            } else {
+                triggerEvent('step-updated', mergedStep);
             }
             
             return mergedStep;
         } catch (error) {
             console.error(`Error in updateStep(${projectId}, ${updatedStep?.id}):`, error);
             return null;
+        }
+    };
+
+    /**
+     * Aktualisiert die UI eines Schritts
+     * @param {Object} step - Der aktualisierte Schritt
+     */
+    const updateStepUI = (step) => {
+        if (!step || !step.id) return;
+        
+        const stepElement = document.querySelector(`.step-item[data-step-id="${step.id}"]`);
+        if (stepElement) {
+            console.log("Updating step UI element");
+            if (step.completed) {
+                stepElement.classList.add('step-completed');
+                const checkbox = stepElement.querySelector('.step-checkbox');
+                if (checkbox) checkbox.setAttribute('aria-checked', 'true');
+            } else {
+                stepElement.classList.remove('step-completed');
+                const checkbox = stepElement.querySelector('.step-checkbox');
+                if (checkbox) checkbox.setAttribute('aria-checked', 'false');
+            }
+            
+            // Titel und Beschreibung aktualisieren, falls vorhanden
+            const titleEl = stepElement.querySelector('.step-title');
+            if (titleEl && step.title) {
+                titleEl.textContent = step.title;
+            }
+            
+            const descEl = stepElement.querySelector('.step-description');
+            if (descEl && step.description !== undefined) {
+                descEl.textContent = step.description || '';
+            }
         }
     };
 
@@ -654,46 +685,6 @@ const TodoManager = (() => {
         
         return pending;
     };
-
-    /**
-     * Erstellt Schrittkategorien für das Dashboard (geplant, in Arbeit, abgeschlossen)
-     * @returns {Object} - Schrittkategorien
-     */
-    const getStepCategories = () => {
-        const categories = {
-            planned: [],
-            inProgress: [],
-            completed: []
-        };
-        
-        // ProjectManager muss verfügbar sein
-        if (typeof ProjectManager === 'undefined' || !ProjectManager.getAllProjects) {
-            return categories;
-        }
-        
-        const allProjects = ProjectManager.getAllProjects();
-        
-        for (const project of Object.values(allProjects)) {
-            if (!project.steps) continue;
-            
-            for (const step of project.steps) {
-                const stepWithProject = {
-                    ...step,
-                    projectTitle: project.title
-                };
-                
-                if (step.completed) {
-                    categories.completed.push(stepWithProject);
-                } else if (step.inProgress) {
-                    categories.inProgress.push(stepWithProject);
-                } else {
-                    categories.planned.push(stepWithProject);
-                }
-            }
-        }
-        
-        return categories;
-    };
     
     /**
      * Markiert einen Schritt als "in Arbeit"
@@ -719,7 +710,6 @@ const TodoManager = (() => {
         reorderSteps,
         updateProjectProgress,
         getPendingSteps,
-        getStepCategories,
         markStepInProgress,
         on
     };

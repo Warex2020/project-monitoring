@@ -1,6 +1,6 @@
 /**
  * websocket.js - Provides WebSocket functionality for live updates
- * Version 1.5.0 - ENHANCED WITH RECONNECT LOGIC AND SECURITY
+ * Version 1.5.1 - ENHANCED WITH RECONNECT LOGIC AND SECURITY
  */
 
 // WebSocket connection
@@ -27,18 +27,19 @@ let csrfToken = null;
 let lastProjectsState = ""; // Letzter Projekte-Status für Vergleich
 
 // Connection status indicators
-const connectionIndicator = document.getElementById('connection-indicator');
-const connectionText = document.getElementById('connection-text');
+let connectionIndicator;
+let connectionText;
 
 // Pending message queue for offline/disconnected mode
 let pendingMessages = [];
 const MAX_PENDING_MESSAGES = 100;
 
-// Custom event for connection status changes
-const connectionStatusEvent = new CustomEvent('websocketStatusChange', {
-    detail: { isConnected: false }
+// Initialize when document is ready
+document.addEventListener('DOMContentLoaded', () => {
+    // Cache DOM elements
+    connectionIndicator = document.getElementById('connection-indicator');
+    connectionText = document.getElementById('connection-text');
 });
-
 
 /**
  * Establishes a WebSocket connection with reconnect logic
@@ -66,28 +67,25 @@ function connectWebSocket() {
                 return window.location.port || 3420;
             } catch (error) {
                 console.error('Error determining server port:', error);
-                return 3000; // Fallback to default port
+                return 3420; // Fallback to default port
             }
         };
         
         // Create WebSocket connection to server with proper protocol detection
         const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-        // Erzwinge unsichere Verbindungen
-        //const protocol = 'ws://'; // Erzwinge unsichere Verbindung für Tests
-
         const host = window.location.hostname;
-        const port = window.location.port || 3420;  // Use the current port or default
+        const port = getServerPort();
         
         console.log(`Establishing WebSocket connection to ${protocol}${host}:${port}...`);
 
-        // Vor dem Erstellen der WebSocket-Verbindung
-        console.log('Verwende folgende WebSocket-Konfiguration:');
-        console.log('- Protokoll:', protocol);
+        // Log WebSocket configuration for debugging
+        console.log('WebSocket configuration:');
+        console.log('- Protocol:', protocol);
         console.log('- Host:', host);
         console.log('- Port:', port);
-        console.log('- Komplette URL:', `${protocol}${host}:${port}`);
-        console.log('- Browser-URL:', window.location.href);
-        console.log('- Browser unterstützt WebSockets:', 'WebSocket' in window);
+        console.log('- Complete URL:', `${protocol}${host}:${port}`);
+        console.log('- Browser URL:', window.location.href);
+        console.log('- Browser supports WebSockets:', 'WebSocket' in window);
         
         // Close existing socket if any
         if (socket) {
@@ -173,9 +171,9 @@ function connectWebSocket() {
             isConnected = false;
             stopHeartbeat(); // Heartbeat stoppen
             
-            // Zusätzliche Debugging-Informationen
+            // Debug information
             console.log('Close Event:', event);
-            console.log('Ready State:', socket.readyState);
+            console.log('Ready State:', socket ? socket.readyState : 'No socket');
             
             handleReconnect(event);
         };
@@ -427,7 +425,9 @@ function processBatch(batchSize = 5) {
  */
 function sendWebSocketMessage(type, data, queueIfOffline = true) {
     // Check offline mode
-    if (typeof OfflineManager !== 'undefined' && OfflineManager.isOffline()) {
+    if (typeof OfflineManager !== 'undefined' && 
+        typeof OfflineManager.isOffline === 'function' &&
+        OfflineManager.isOffline()) {
         console.log('Offline mode: Message will be buffered', type);
         return OfflineManager.addOfflineChange(type, data);
     }
@@ -443,7 +443,8 @@ function sendWebSocketMessage(type, data, queueIfOffline = true) {
         }
         
         // Buffer message in offline mode if available
-        if (typeof OfflineManager !== 'undefined') {
+        if (typeof OfflineManager !== 'undefined' && 
+            typeof OfflineManager.addOfflineChange === 'function') {
             return OfflineManager.addOfflineChange(type, data);
         }
         
@@ -505,7 +506,8 @@ function sendWebSocketMessage(type, data, queueIfOffline = true) {
         }
         
         // Buffer message in offline mode if available
-        if (typeof OfflineManager !== 'undefined') {
+        if (typeof OfflineManager !== 'undefined' && 
+            typeof OfflineManager.addOfflineChange === 'function') {
             return OfflineManager.addOfflineChange(type, data);
         }
         
@@ -517,11 +519,6 @@ function sendWebSocketMessage(type, data, queueIfOffline = true) {
  * Processes incoming WebSocket messages
  * @param {Object} message - Message to process
  */
-/**
- * Diesen Code in websocket.js hinzufügen/aktualisieren
- * Finde die Funktion handleWebSocketMessage und erweitere sie
- */
-
 function handleWebSocketMessage(message) {
     if (!message || !message.type) {
         console.error('Invalid WebSocket message:', message);
@@ -621,6 +618,11 @@ function updateStepInProject(projectId, stepData) {
         return;
     }
     
+    if (typeof ProjectManager === 'undefined' || typeof ProjectManager.getProject !== 'function') {
+        console.error('ProjectManager not available for step update');
+        return;
+    }
+    
     const project = ProjectManager.getProject(projectId);
     if (!project) {
         console.error(`Project ${projectId} not found`);
@@ -661,6 +663,11 @@ function deleteStepFromProject(projectId, stepId) {
     
     if (!projectId || !stepId) {
         console.error('Invalid project or step ID for deletion');
+        return;
+    }
+    
+    if (typeof ProjectManager === 'undefined' || typeof ProjectManager.getProject !== 'function') {
+        console.error('ProjectManager not available for step deletion');
         return;
     }
     
@@ -727,8 +734,8 @@ function updateStepUI(stepData) {
 }
 
 /**
- * Verarbeitet die vollständige Projektsynchronisierung
- * @param {Object} projects - Alle Projekte
+ * Processes complete project synchronization
+ * @param {Object} projects - All projects
  */
 function handleFullProjectSync(projects) {
     if (!projects) return;
@@ -743,13 +750,13 @@ function handleFullProjectSync(projects) {
 }
 
 /**
- * Verarbeitet inkrementelle Projektupdates
- * @param {Object} data - Update-Daten (updated und deleted Projekte)
+ * Processes incremental project updates
+ * @param {Object} data - Update data (updated and deleted projects)
  */
 function handleIncrementalSync(data) {
     if (!data) return;
     
-    // Aktualisierte Projekte verarbeiten
+    // Process updated projects
     if (data.updated && typeof ProjectManager !== 'undefined') {
         const updatedCount = Object.keys(data.updated).length;
         if (updatedCount > 0) {
@@ -761,7 +768,7 @@ function handleIncrementalSync(data) {
         }
     }
     
-    // Gelöschte Projekte verarbeiten
+    // Process deleted projects
     if (data.deleted && data.deleted.length > 0 && typeof ProjectManager !== 'undefined') {
         console.log(`Processing ${data.deleted.length} deleted projects`);
         
@@ -772,46 +779,17 @@ function handleIncrementalSync(data) {
 }
 
 /**
- * Processes project synchronization data
- * @param {Object} projects - Projects to sync
- */
-function handleProjectSync(projects) {
-    if (!projects) return;
-    
-    // Projekte Vergleichen - JSON-String als Hash verwenden
-    const newProjectsState = JSON.stringify(projects);
-    
-    // Nur aktualisieren, wenn sich etwas geändert hat
-    if (newProjectsState !== lastProjectsState) {
-        console.log('Projects changed, updating UI');
-        
-        if (typeof ProjectManager !== 'undefined' && typeof ProjectManager.updateProject === 'function') {
-            Object.values(projects).forEach(project => {
-                ProjectManager.updateProject(project);
-            });
-            
-            console.log('Projects synchronized:', Object.keys(projects).length);
-        }
-        
-        // Neuen Status speichern
-        lastProjectsState = newProjectsState;
-    } else {
-        console.log('No project changes, skipping UI update');
-    }
-}
-
-/**
  * Updates the connection status display with debouncing
  * @param {string} status - Connection status
  */
 function updateConnectionStatus(status) {
     if (!connectionIndicator || !connectionText) return;
     
-    // Status-Übergänge priorisieren:
-    // - Sofort anzeigen: 'offline' und 'disconnected' (kritische Zustände)
-    // - Verzögert anzeigen: 'connecting' und 'connected'
+    // Priority status transitions:
+    // - Show immediately: 'offline' and 'disconnected' (critical states)
+    // - Delay showing: 'connecting' and 'connected'
     
-    // Wenn ein kritischer Status eintritt, sofort anzeigen
+    // For critical status, show immediately
     if (status === 'offline' || status === 'disconnected') {
         clearTimeout(connectionStatusTimer);
         pendingStatus = null;
@@ -819,19 +797,19 @@ function updateConnectionStatus(status) {
         return;
     }
     
-    // Connecting sollte nur angezeigt werden, wenn nicht schon 'connected'
+    // Don't show 'connecting' if already 'connected'
     if (status === 'connecting' && lastConnectionStatus === 'connected') {
-        return; // Ignoriere kurze "connecting"-Phasen wenn wir bereits verbunden sind
+        return; // Ignore brief "connecting" phases when already connected
     }
     
-    // Bei anderen Status-Updates: Verzögerung einbauen (Debounce)
+    // For other status updates: add delay (debounce)
     pendingStatus = status;
     
     if (connectionStatusTimer) {
         clearTimeout(connectionStatusTimer);
     }
     
-    // Verzögerung von 2 Sekunden für nicht-kritische Statusänderungen
+    // Delay of 2 seconds for non-critical status changes
     connectionStatusTimer = setTimeout(() => {
         if (pendingStatus) {
             doUpdateConnectionStatus(pendingStatus);
@@ -841,20 +819,20 @@ function updateConnectionStatus(status) {
 }
 
 /**
- * Tatsächliche Aktualisierung der UI nach Debouncing
+ * Actual UI update after debouncing
  * @param {string} status - Connection status
  */
 function doUpdateConnectionStatus(status) {
-    // Wenn der Status gleich ist, nichts tun
+    // If status is unchanged, do nothing
     if (lastConnectionStatus === status) return;
     
-    // Alten Status speichern
+    // Store old status
     lastConnectionStatus = status;
     
-    // Entferne alle vorherigen Klassen
+    // Remove all previous classes
     connectionIndicator.className = '';
     
-    // Längere Transition für sanftere Übergänge
+    // Longer transition for smoother transitions
     connectionIndicator.style.transition = 'all 0.8s ease';
     
     switch (status) {
@@ -879,7 +857,7 @@ function doUpdateConnectionStatus(status) {
             break;
     }
     
-    // Für Debugging
+    // For debugging
     console.log(`Connection status changed to: ${status}`);
 }
 
@@ -891,27 +869,28 @@ function isWebSocketConnected() {
     return isConnected && socket && socket.readyState === WebSocket.OPEN;
 }
 
-// Startet den Heartbeat
+/**
+ * Start the heartbeat
+ */
 function startHeartbeat() {
     if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
     }
     heartbeatInterval = setInterval(() => {
         if (socket && socket.readyState === WebSocket.OPEN) {
-            // Sende einen WebSocket-nativen Ping-Frame
-            socket.ping();
-            console.log('WebSocket native ping sent');
+            // Send native WebSocket ping frame
+            socket.send(JSON.stringify({
+                type: 'ping',
+                timestamp: Date.now()
+            }));
+            console.log('WebSocket ping sent');
         }
-    }, 30000); // Alle 30 Sekunden
+    }, 30000); // Every 30 seconds
 }
 
-// Zusätzliche Fehlerbehandlung für Ping-Mechanismus
-socket.addEventListener('pong', () => {
-    console.log('Received pong from server');
-    // Optional: Setze Reconnect-Zähler zurück oder aktualisiere Verbindungsstatus
-});
-
-// Stoppt den Heartbeat
+/**
+ * Stop the heartbeat
+ */
 function stopHeartbeat() {
     if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
@@ -919,12 +898,15 @@ function stopHeartbeat() {
     }
 }
 
+/**
+ * Handle reconnection
+ */
 function handleReconnect(event) {
     if (reconnectAttempts < maxReconnectAttempts) {
         reconnectAttempts++;
         
-        // Berechne Backoff-Intervall mit Jitter
-        const jitter = Math.random() * 0.3 + 0.85; // Zufällig zwischen 0.85 und 1.15
+        // Calculate backoff interval with jitter
+        const jitter = Math.random() * 0.3 + 0.85; // Random between 0.85 and 1.15
         const backoffInterval = Math.min(
             reconnectInterval * Math.pow(backoffFactor, reconnectAttempts - 1) * jitter, 
             maxReconnectInterval
@@ -939,16 +921,22 @@ function handleReconnect(event) {
     }
 }
 
+/**
+ * Enter offline mode
+ */
 function enterOfflineMode() {
     console.log('Entering offline mode');
     updateConnectionStatus('offline');
-    // Zeige eine Benachrichtigung oder sperre bestimmte Funktionen
+    
+    // Show notification or lock certain features
+    if (typeof OfflineManager !== 'undefined' && 
+        typeof OfflineManager.enterOfflineMode === 'function') {
+        OfflineManager.enterOfflineMode();
+    }
 }
 
-
 /**
- * Function to send the current authentication status via WebSocket
- * Add this to websocket.js
+ * Send authentication status via WebSocket
  */
 function sendAuthStatus() {
     // Check if AuthManager is available
@@ -1028,71 +1016,9 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-
-// Debug-Helfer für WebSocket-Nachrichten
-(function() {
-    // Speichere die originale sendWebSocketMessage-Funktion
-    const originalSendMessage = window.sendWebSocketMessage;
-    
-    // Überschreibe die Funktion mit einer Debug-Version
-    window.sendWebSocketMessage = function(type, data, queueIfOffline = true) {
-        console.log('WebSocket Send Attempt:', { type, data });
-        
-        // Prüfe, ob die Verbindung offen ist
-        if (!socket || socket.readyState !== WebSocket.OPEN) {
-            console.warn('WebSocket not open! ReadyState:', socket ? socket.readyState : 'No socket');
-        }
-        
-        // Rufe die originale Funktion auf
-        const result = originalSendMessage(type, data, queueIfOffline);
-        
-        console.log('Send result:', result);
-        return result;
-    };
-    
-    // Direkter Log für das nächste WebSocket-Message-Event
-    if (socket) {
-        const originalOnMessage = socket.onmessage;
-        socket.onmessage = function(event) {
-            try {
-                const message = JSON.parse(event.data);
-                console.log('WebSocket received:', message);
-            } catch (e) {
-                console.log('WebSocket received raw data:', event.data);
-            }
-            
-            // Originalen Handler aufrufen
-            if (originalOnMessage) {
-                originalOnMessage.call(this, event);
-            }
-        };
-        
-        console.log('WebSocket debug listeners installed');
-    } else {
-        console.warn('Could not install WebSocket debug listeners: Socket not available');
-    }
-    
-    // Prüfen, ob Authentifizierung richtig funktioniert
-    setTimeout(() => {
-        if (typeof AuthManager !== 'undefined') {
-            console.log('Auth status:', {
-                isAuthenticated: AuthManager.isAuthenticated ? AuthManager.isAuthenticated() : 'function not available',
-                isAuthRequired: AuthManager.isAuthRequired ? AuthManager.isAuthRequired() : 'function not available',
-                username: AuthManager.getUsername ? AuthManager.getUsername() : 'function not available'
-            });
-        }
-        
-        // Verbindungsstatus prüfen
-        console.log('WebSocket connected:', isWebSocketConnected());
-    }, 2000);
-    
-    console.log('WebSocket debug helpers installed');
-})();
-
 // Expose functions globally
 window.connectWebSocket = connectWebSocket;
 window.sendWebSocketMessage = sendWebSocketMessage;
 window.isWebSocketConnected = isWebSocketConnected;
 window.sendAuthStatus = sendAuthStatus;
-
-
+window.updateConnectionStatus = updateConnectionStatus;

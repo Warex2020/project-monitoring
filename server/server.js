@@ -466,7 +466,7 @@ try {
         },
         security: {
             mode: "private",
-            requireLoginForChanges: false,
+            requireLoginForChanges: true,
             sessionSecret: crypto.randomBytes(32).toString('hex') // Generiere ein zufälliges Secret
         }
     };
@@ -474,7 +474,7 @@ try {
 
 const serverConfig = config.server || {};
 const dashboardConfig = config.dashboard || { title: "IT-Projekt-Monitoring", subtitle: "Dashboard für IT-Abteilung" };
-const securityConfig = config.security || { mode: "private", requireLoginForChanges: false };
+const securityConfig = config.security || { mode: "private", requireLoginForChanges: true };
 
 // Ensure we have a session secret
 if (!securityConfig.sessionSecret) {
@@ -650,10 +650,164 @@ app.post('/login', loginLimiter, async (req, res) => {
             const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
             
             // Time-constant comparison to prevent timing attacks
-            const passwordsMatch = crypto.timingSafeEqual(
-                Buffer.from(hashedPassword, 'hex'),
-                Buffer.from(user.password, 'hex')
-            );
+            if (hashedPassword === user.password) {
+                // Regenerate session to prevent session fixation
+                req.session.regenerate((err) => {
+                    if (err) {
+                        console.error('Session regeneration error:', err);
+                        return res.status(500).json({ success: false, message: 'Internal server error' });
+                    }
+                    
+                    // Set session data
+                    req.session.authenticated = true;
+                    req.session.username = username;
+                    req.session.role = user.role;
+                    req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+                    
+                    logEvent(`User ${username} logged in successfully`);
+                    return res.status(200).json({ 
+                        success: true, 
+                        message: 'Login successful', 
+                        role: user.role,
+                        csrfToken: req.session.csrfToken
+                    });
+                });
+                return;
+            }
+        }
+        
+        // Failed login
+        logEvent(`Failed login attempt for username: ${username}`);
+        return res.status(401).json({ success: false, message: 'Invalid username or password' });
+    } catch (error) {
+        console.error('Login error:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+});
+
+// Logout route
+app.get('/logout', (req, res) => {
+    req.session.destroy(() => {
+        res.redirect('/login');
+    });
+});
+
+// Authentication status API
+app.get('/api/auth-status', (req, res) => {
+    // Get session-based authentication status
+    const isAuthenticated = req.session && req.session.authenticated === true;
+    const needsAuth = securityConfig.mode === "private" && securityConfig.requireLoginForChanges;
+    
+    // Add cache control headers to prevent caching of auth status
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    // Send detailed auth information
+    res.json({
+        authenticated: isAuthenticated,
+        requiresAuth: needsAuth,
+        username: req.session.username || null,
+        role: req.session.role || null,
+        csrfToken: req.session.csrfToken || null,
+        serverTime: new Date().toISOString() // For debugging timing issues
+    });
+});
+
+// Config API - Send dashboard config to client
+app.get('/api/dashboard-config', (req, res) => {
+    res.json({
+        title: dashboardConfig.title,
+        subtitle: dashboardConfig.subtitle,
+        security: {
+            mode: securityConfig.mode,
+            requireLoginForChanges: securityConfig.requireLoginForChanges
+        },
+        version: require('../package.json').version
+    });
+});
+
+// API routes with rate limiting
+app.use('/api', apiLimiter);
+
+// Main page route
+app.get('/', (req, res) => {
+    // If security mode is private and login is required, check authentication
+    if (securityConfig.mode === "private" && securityConfig.requireLoginForChanges && 
+        !(req.session && req.session.authenticated)) {
+        return res.redirect('/login');
+    }
+    
+    // Read HTML content
+    fs.readFile(path.join(__dirname, '..', 'index.html'), 'utf8')
+        .then(htmlContent => {
+            // Add CSP nonce if needed
+            const nonce = crypto.randomBytes(16).toString('base64');
+            htmlContent = htmlContent.replace(/<script/g, `<script nonce="${nonce}"`);
+            
+            // Add CSRF token
+            if (req.session.csrfToken) {
+                htmlContent = htmlContent.replace('</head>', `<meta name="csrf-token" content="${req.session.csrfToken}"></head>`);
+            }
+            
+            // Send modified HTML
+            res.send(htmlContent);
+        })
+        .catch(err => {
+            console.error('Error reading index.html:', err);
+            res.status(500).send('Server error');
+        });
+});
+
+// Health check route
+app.get('/health', (req, res) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Credentials', true);
+    res.status(200).json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
+
+// Fallback route
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
+});
+
+// Login POST route for authentication with rate limiting
+app.post('/login', loginLimiter, async (req, res) => {
+    const { username, password } = req.body;
+    
+    // Skip authentication if mode is public
+    if (securityConfig.mode === "public" || !securityConfig.requireLoginForChanges) {
+        req.session.authenticated = true;
+        req.session.username = "guest";
+        req.session.role = "guest";
+        return res.status(200).json({ success: true, message: 'Login successful' });
+    }
+    
+    try {
+        // Verify credentials with time-constant comparison
+        const users = securityConfig.users || [];
+        const user = users.find(u => u.username === username);
+        
+        if (user) {
+            // Hash the provided password for comparison
+            const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
+            
+            // Time-constant comparison to prevent timing attacks
+            let passwordsMatch = false;
+            
+            try {
+                passwordsMatch = crypto.timingSafeEqual(
+                    Buffer.from(hashedPassword, 'hex'),
+                    Buffer.from(user.password, 'hex')
+                );
+            } catch (e) {
+                console.error('Error comparing passwords:', e);
+                passwordsMatch = hashedPassword === user.password;
+            }
             
             if (passwordsMatch) {
                 // Regenerate session to prevent session fixation
