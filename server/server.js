@@ -699,15 +699,23 @@ app.get('/logout', (req, res) => {
 
 // Authentication status API
 app.get('/api/auth-status', (req, res) => {
-    const isAuthenticated = req.session && req.session.authenticated;
+    // Get session-based authentication status
+    const isAuthenticated = req.session && req.session.authenticated === true;
     const needsAuth = securityConfig.mode === "private" && securityConfig.requireLoginForChanges;
     
+    // Add cache control headers to prevent caching of auth status
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    // Send detailed auth information
     res.json({
         authenticated: isAuthenticated,
         requiresAuth: needsAuth,
         username: req.session.username || null,
         role: req.session.role || null,
-        csrfToken: req.session.csrfToken || null
+        csrfToken: req.session.csrfToken || null,
+        serverTime: new Date().toISOString() // For debugging timing issues
     });
 });
 

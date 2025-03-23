@@ -105,21 +105,15 @@ function connectWebSocket() {
             updateConnectionStatus('connected');
             startHeartbeat();
             
-            // Debug-Information
-            console.log('Connection established, sending auth status...');
-            
             // Dispatch custom event
             window.dispatchEvent(new CustomEvent('websocketStatusChange', {
                 detail: { isConnected: true }
             }));
             
-            // Send authentication status if available
-            if (typeof AuthManager !== 'undefined' && typeof AuthManager.sendAuthStatus === 'function') {
-                setTimeout(() => {
-                    console.log('Attempting to send auth status...');
-                    AuthManager.sendAuthStatus();
-                }, 500);
-            }
+            // Send authentication status immediately when connection is established
+            setTimeout(() => {
+                sendAuthStatus();
+            }, 500);
             
             // Process pending messages
             processPendingMessages();
@@ -951,6 +945,55 @@ function enterOfflineMode() {
     // Zeige eine Benachrichtigung oder sperre bestimmte Funktionen
 }
 
+
+/**
+ * Function to send the current authentication status via WebSocket
+ * Add this to websocket.js
+ */
+function sendAuthStatus() {
+    // Check if AuthManager is available
+    if (typeof AuthManager !== 'undefined' && 
+        typeof AuthManager.isAuthenticated === 'function') {
+        
+        const isAuthenticated = AuthManager.isAuthenticated();
+        const username = AuthManager.getUsername ? AuthManager.getUsername() : null;
+        const role = AuthManager.getUserRole ? AuthManager.getUserRole() : null;
+        
+        // Only send if we have a valid websocket connection
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            console.log('Sending auth status via WebSocket:', { 
+                authenticated: isAuthenticated,
+                username: username
+            });
+            
+            const message = {
+                type: 'authenticate',
+                data: {
+                    authenticated: isAuthenticated,
+                    username: username,
+                    role: role,
+                    sessionId: localStorage.getItem('sessionId') || Date.now().toString(36)
+                },
+                timestamp: Date.now()
+            };
+            
+            try {
+                socket.send(JSON.stringify(message));
+                return true;
+            } catch (error) {
+                console.error('Error sending auth status via WebSocket:', error);
+                return false;
+            }
+        } else {
+            console.warn('Cannot send auth status: WebSocket not connected');
+            return false;
+        }
+    } else {
+        console.warn('AuthManager not available for sending auth status');
+        return false;
+    }
+}
+
 // Initialize connection on page load
 window.addEventListener('load', () => {
     // Try to load pending messages from localStorage
@@ -1050,6 +1093,6 @@ document.addEventListener('visibilitychange', () => {
 window.connectWebSocket = connectWebSocket;
 window.sendWebSocketMessage = sendWebSocketMessage;
 window.isWebSocketConnected = isWebSocketConnected;
-
+window.sendAuthStatus = sendAuthStatus;
 
 

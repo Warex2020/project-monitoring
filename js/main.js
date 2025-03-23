@@ -41,12 +41,47 @@ async function initConfig() {
 }
 
 // Initializes authentication
+/**
+ * Improved authentication initialization for main.js
+ * Replace the initAuth function with this version
+ */
 async function initAuth() {
     try {
         // Check if AuthManager is available
         if (typeof AuthManager !== 'undefined' && typeof AuthManager.init === 'function') {
+            // Check if we have a auth_refresh parameter in the URL - this is added after login
+            const urlParams = new URLSearchParams(window.location.search);
+            const authRefresh = urlParams.get('auth_refresh');
+            
+            if (authRefresh) {
+                // Clean the URL by removing the auth_refresh parameter
+                const url = new URL(window.location.href);
+                url.searchParams.delete('auth_refresh');
+                window.history.replaceState({}, document.title, url);
+                
+                // Force a server check before initialization
+                if (typeof AuthManager.checkServerAuth === 'function') {
+                    console.log('Forcing auth refresh from server...');
+                    await AuthManager.checkServerAuth();
+                }
+            }
+            
+            // Now initialize the auth manager
             const authStatus = await AuthManager.init();
             console.log('Authentication initialized:', authStatus);
+            
+            // Update UI immediately
+            if (typeof AuthManager.updateUI === 'function') {
+                AuthManager.updateUI();
+            }
+            
+            // If websocket is connected, send auth status
+            if (typeof window.isWebSocketConnected === 'function' && 
+                window.isWebSocketConnected() &&
+                typeof window.sendAuthStatus === 'function') {
+                window.sendAuthStatus();
+            }
+            
             return authStatus;
         }
         return null;

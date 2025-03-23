@@ -1,6 +1,6 @@
 /**
  * authManager.js - Manages authentication for the dashboard
- * Version 1.1.0 - Fixed authentication status and UI update
+ * Version 1.2.0 - Improved session handling and UI synchronization
  */
 
 const AuthManager = (() => {
@@ -17,8 +17,20 @@ const AuthManager = (() => {
             // First check for already stored authentication
             checkStoredAuth();
             
-            // Then refresh from server
-            await checkServerAuth();
+            // Then refresh from server - important to get the latest state
+            const serverAuth = await checkServerAuth();
+            
+            // Update local state with server state - server is the source of truth
+            isAuthenticatedStatus = serverAuth.authenticated || false;
+            requiresAuth = serverAuth.requiresAuth || false;
+            username = serverAuth.username || null;
+            role = serverAuth.role || null;
+            
+            // Save updated auth status to localStorage
+            saveAuthStatus();
+            
+            // Update the UI based on current auth status
+            updateUI();
             
             // Init retry mechanism for WebSocket auth sync
             initAuthSync();
@@ -53,6 +65,20 @@ const AuthManager = (() => {
         }
     };
     
+    // Save authentication status to localStorage
+    const saveAuthStatus = () => {
+        try {
+            localStorage.setItem('authStatus', JSON.stringify({
+                authenticated: isAuthenticatedStatus,
+                requiresAuth: requiresAuth,
+                username: username,
+                role: role
+            }));
+        } catch (error) {
+            console.error('Error saving auth status:', error);
+        }
+    };
+    
     // Initialize retry mechanism for WebSocket auth sync
     const initAuthSync = () => {
         // Check if WebSocket is connected after a short delay
@@ -76,7 +102,12 @@ const AuthManager = (() => {
     
     // Check authentication status from server
     const checkServerAuth = async () => {
-        if (authCheckInProgress) return;
+        if (authCheckInProgress) return { 
+            authenticated: isAuthenticatedStatus, 
+            requiresAuth: requiresAuth,
+            username: username,
+            role: role
+        };
         
         authCheckInProgress = true;
         
@@ -86,7 +117,7 @@ const AuthManager = (() => {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                credentials: 'include'
+                credentials: 'include' // Important: include cookies for session auth
             });
             
             if (!response.ok) {
@@ -94,6 +125,7 @@ const AuthManager = (() => {
             }
             
             const data = await response.json();
+            console.log('Server auth status:', data);
             
             // Update authentication state
             isAuthenticatedStatus = data.authenticated;
@@ -102,12 +134,7 @@ const AuthManager = (() => {
             role = data.role;
             
             // Update localStorage for persistence between page reloads
-            localStorage.setItem('authStatus', JSON.stringify({
-                authenticated: isAuthenticatedStatus,
-                requiresAuth: requiresAuth,
-                username: username,
-                role: role
-            }));
+            saveAuthStatus();
             
             // Update UI based on authentication status
             updateUI();
@@ -119,7 +146,9 @@ const AuthManager = (() => {
             console.error('Error checking auth status from server:', error);
             return { 
                 authenticated: isAuthenticatedStatus, 
-                requiresAuth: requiresAuth 
+                requiresAuth: requiresAuth,
+                username: username,
+                role: role
             };
         } finally {
             authCheckInProgress = false;
@@ -128,12 +157,12 @@ const AuthManager = (() => {
     
     // Send authentication status to WebSocket server
     const sendAuthStatus = () => {
-        if (typeof window.sendAuthStatus === 'function') {
-            window.sendAuthStatus();
-        } else if (typeof window.sendWebSocketMessage === 'function') {
+        if (typeof window.sendWebSocketMessage === 'function') {
             if (window.sendWebSocketMessage('authenticate', {
                 authenticated: isAuthenticatedStatus,
-                sessionId: localStorage.getItem('sessionId') || Date.now().toString(36)
+                username: username,
+                role: role,
+                sessionId: Date.now().toString(36) // Simple random ID
             })) {
                 console.log('Auth status sent via WebSocket');
             } else {
@@ -144,6 +173,8 @@ const AuthManager = (() => {
     
     // Update UI based on authentication status
     const updateUI = () => {
+        console.log('Updating UI based on auth status:', isAuthenticatedStatus ? 'Authenticated' : 'Not authenticated');
+        
         // Add login/logout button to the header
         const authContainer = document.getElementById('auth-container');
         if (authContainer) {
@@ -259,7 +290,8 @@ const AuthManager = (() => {
         isAuthenticated,
         isAuthRequired,
         getUsername,
-        getUserRole
+        getUserRole,
+        checkServerAuth // Expose this for manual refreshes
     };
 })();
 

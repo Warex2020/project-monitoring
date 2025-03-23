@@ -343,6 +343,9 @@
                 .catch(error => console.error('Error loading dashboard config:', error));
             
             // Handle form submission with AJAX
+            // Replace the login form submission handler in login.html
+
+            // Improved login form submission handler
             loginForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 
@@ -363,21 +366,36 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({ username, password }),
-                    credentials: 'same-origin'
+                    credentials: 'include' // Important for session cookies!
                 })
-                .then(response => {
-                    if (response.ok) {
-                        // Success - redirect to dashboard
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Success - store auth data
+                        localStorage.setItem('authStatus', JSON.stringify({
+                            authenticated: true,
+                            username: username,
+                            role: data.role || 'user',
+                            requiresAuth: true
+                        }));
+                        
+                        // Store CSRF token if provided
+                        if (data.csrfToken) {
+                            localStorage.setItem('csrfToken', data.csrfToken);
+                        }
+                        
+                        // Show success message
                         showToast('Login successful! Redirecting...', 'success');
+                        
+                        // Redirect to dashboard with a parameter to force auth refresh
                         setTimeout(() => {
-                            window.location.href = '/';
+                            // Redirect to the returnUrl or default to dashboard
+                            const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+                            window.location.href = returnUrl || '/?auth_refresh=1';
                         }, 1000);
-                    } else if (response.status === 401) {
-                        // Authentication failed
-                        throw new Error('Invalid username or password');
                     } else {
-                        // Other errors
-                        throw new Error('Login failed. Please try again later.');
+                        // Authentication failed
+                        throw new Error(data.message || 'Invalid username or password');
                     }
                 })
                 .catch(error => {
