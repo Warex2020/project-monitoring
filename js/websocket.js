@@ -746,15 +746,18 @@ function startHeartbeat() {
     }
     heartbeatInterval = setInterval(() => {
         if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ 
-                type: 'ping', 
-                data: {}, // Add empty data object
-                timestamp: Date.now() 
-            }));
-            console.log('Heartbeat sent');
+            // Sende einen WebSocket-nativen Ping-Frame
+            socket.ping();
+            console.log('WebSocket native ping sent');
         }
     }, 30000); // Alle 30 Sekunden
 }
+
+// Zusätzliche Fehlerbehandlung für Ping-Mechanismus
+socket.addEventListener('pong', () => {
+    console.log('Received pong from server');
+    // Optional: Setze Reconnect-Zähler zurück oder aktualisiere Verbindungsstatus
+});
 
 // Stoppt den Heartbeat
 function stopHeartbeat() {

@@ -106,7 +106,7 @@
         "completed": false
       }
     ],
-    "updatedAt": "2025-03-23T10:37:20.012Z"
+    "updatedAt": "2025-03-23T10:47:48.613Z"
   },
   "p003": {
     "id": "p003",
@@ -170,7 +170,7 @@
     "id": "p004",
     "title": "Helpdesk System Upgrade",
     "status": "delayed",
-    "progress": 30,
+    "progress": 40,
     "nextStep": "Complete system customization",
     "team": [
       "Robert",
@@ -186,18 +186,18 @@
         "completed": true
       },
       {
-        "id": "s019",
-        "projectId": "p004",
-        "title": "System evaluation",
-        "description": "Evaluate available helpdesk solutions",
-        "completed": true
-      },
-      {
         "id": "s020",
         "projectId": "p004",
         "title": "System customization",
         "description": "Customize the system to match company workflows",
         "completed": false
+      },
+      {
+        "id": "s019",
+        "projectId": "p004",
+        "title": "System evaluation",
+        "description": "Evaluate available helpdesk solutions",
+        "completed": true
       },
       {
         "id": "s021",
@@ -219,9 +219,19 @@
         "title": "Go-live",
         "description": "Launch new helpdesk system",
         "completed": false
+      },
+      {
+        "id": "m8linfimb2wjk",
+        "projectId": "p004",
+        "title": "bjgvghfvhj",
+        "description": "",
+        "completed": false,
+        "updatedAt": "2025-03-23T10:49:44.784Z",
+        "createdAt": "2025-03-23T10:49:44.784Z",
+        "tags": []
       }
     ],
-    "updatedAt": "2025-03-23T10:36:22.260Z"
+    "updatedAt": "2025-03-23T10:50:26.884Z"
   },
   "p005": {
     "id": "p005",

@@ -439,6 +439,27 @@ wss.on('connection', async (ws, req) => {
         connectedAt: new Date(),
         lastActivity: new Date()
     });
+
+    // Add native ping/pong handling
+    ws.on('ping', () => {
+        console.log('Received ping from client');
+        ws.pong(); // Respond with a pong
+    });
+
+    // Optional: Implement periodic server-side ping
+    const pingInterval = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.ping();
+            console.log('Server sent ping to client');
+        } else {
+            clearInterval(pingInterval);
+        }
+    }, 45000); // Slightly longer than client ping interval
+
+    // Cleanup on close
+    ws.on('close', () => {
+        clearInterval(pingInterval);
+    });
     
     // Check if IP is allowed (skip if security mode is public)
     if (securityConfig.mode === "private" && !await isAllowedIp(clientIp)) {
