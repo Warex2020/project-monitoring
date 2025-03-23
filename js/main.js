@@ -4,23 +4,30 @@
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Load configuration first
+    // Zuerst Konfiguration laden
     await initConfig();
     
-    // Initialize date and time
+    // UI-Elemente initialisieren
     updateDateTime();
     setInterval(updateDateTime, 1000);
-
-    // Initialize event handlers
     initEventHandlers();
 
-    // Connect to WebSocket
-    connectWebSocket();
-
-    // Check authentication status
+    // WICHTIG: Zuerst Auth initialisieren, dann WebSocket verbinden
     await initAuth();
-
-    // Load projects
+    
+    // Event-Listener für WebSocket-Verbindung hinzufügen
+    window.addEventListener('websocketStatusChange', (e) => {
+        if (e.detail.isConnected && typeof window.sendAuthStatus === 'function') {
+            // Wenn WebSocket verbunden ist, Auth-Status senden
+            console.log('WebSocket connected, sending auth status');
+            window.sendAuthStatus();
+        }
+    });
+    
+    // Erst jetzt WebSocket verbinden
+    connectWebSocket();
+    
+    // Projekte laden
     loadProjects();
 });
 

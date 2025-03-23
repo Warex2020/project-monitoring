@@ -80,15 +80,21 @@ const AuthManager = (() => {
     };
     
     // Initialize retry mechanism for WebSocket auth sync
+    let authSyncTimeout = null;
     const initAuthSync = () => {
-        // Check if WebSocket is connected after a short delay
-        setTimeout(() => {
+        // Existierenden Timeout löschen um Parallelität zu vermeiden
+        if (authSyncTimeout) {
+            clearTimeout(authSyncTimeout);
+        }
+        
+        authSyncTimeout = setTimeout(() => {
             if (typeof window.isWebSocketConnected === 'function' && window.isWebSocketConnected()) {
                 // Send auth status if WebSocket is connected
                 sendAuthStatus();
+                authSyncTimeout = null;
             } else {
-                // Try again later
-                setTimeout(initAuthSync, 2000);
+                // Try again later, aber keine rekursion
+                authSyncTimeout = setTimeout(initAuthSync, 2000);
             }
         }, 1000);
         
@@ -101,6 +107,7 @@ const AuthManager = (() => {
     };
     
     // Check authentication status from server
+    let authCheckTimeoutId = null;
     const checkServerAuth = async () => {
         if (authCheckInProgress) return { 
             authenticated: isAuthenticatedStatus, 
@@ -110,6 +117,12 @@ const AuthManager = (() => {
         };
         
         authCheckInProgress = true;
+        
+        // Setze einen Timeout, der authCheckInProgress zurücksetzt
+        if (authCheckTimeoutId) clearTimeout(authCheckTimeoutId);
+        authCheckTimeoutId = setTimeout(() => {
+            authCheckInProgress = false;
+        }, 10000); // 10 Sekunden Timeout
         
         try {
             const response = await fetch('/api/auth-status', {
@@ -131,8 +144,16 @@ const AuthManager = (() => {
             // Wenn der Server keine Session-Informationen hat, sollten wir den lokalen Status beibehalten
             if (data.authenticated !== undefined) {
                 isAuthenticatedStatus = data.authenticated;
-                if (data.username) username = data.username;
-                if (data.role) role = data.role;
+                
+                // Bei nicht authentifiziert, leeren wir die Benutzerinformationen
+                if (!data.authenticated) {
+                    username = null;
+                    role = null;
+                } else {
+                    // Bei authentifiziert übernehmen wir die Serverinformationen
+                    username = data.username || null;
+                    role = data.role || null;
+                }
             }
             
             if (data.requiresAuth !== undefined) {
@@ -157,6 +178,7 @@ const AuthManager = (() => {
                 role: role
             };
         } finally {
+            clearTimeout(authCheckTimeoutId);
             authCheckInProgress = false;
         }
     };
@@ -168,7 +190,7 @@ const AuthManager = (() => {
                 authenticated: isAuthenticatedStatus,
                 username: username,
                 role: role,
-                sessionId: Date.now().toString(36) // Simple random ID
+                sessionId: document.cookie.split(';').find(c => c.trim().startsWith('projectMonitoringSessionId='))?.split('=')[1] || null
             })) {
                 console.log('Auth status sent via WebSocket');
             } else {
@@ -303,8 +325,14 @@ const AuthManager = (() => {
 
 // Initialize after DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    // Wait for other scripts to load
-    setTimeout(() => {
-        AuthManager.init();
-    }, 500);
+    function waitForDependencies(callback) {
+        // Prüfen, ob abhängige Komponenten verfügbar sind
+        if (typeof window.isWebSocketConnected === 'function') {
+            callback();
+        } else {
+            setTimeout(() => waitForDependencies(callback), 100);
+        }
+    }
+    
+    waitForDependencies(() => AuthManager.init());
 });

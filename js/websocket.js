@@ -143,6 +143,14 @@ function connectWebSocket() {
                     if (message.data.token) {
                         authToken = message.data.token;
                     }
+
+                    // AuthManager aktualisieren
+                    if (typeof AuthManager !== 'undefined' && message.data.authenticated !== undefined) {
+                        // Lokale Auth-Informationen mit Server-Daten aktualisieren
+                        if (typeof AuthManager.updateAuthInfo === 'function') {
+                            AuthManager.updateAuthInfo(message.data);
+                        }
+                    }
                     
                     return;
                 }
@@ -960,7 +968,7 @@ function sendAuthStatus() {
                     authenticated: isAuthenticated,
                     username: username,
                     role: role,
-                    sessionId: localStorage.getItem('sessionId') || Date.now().toString(36)
+                    sessionId: document.cookie.split(';').find(c => c.trim().startsWith('projectMonitoringSessionId='))?.split('=')[1] || null
                 },
                 timestamp: Date.now()
             };
@@ -984,25 +992,20 @@ function sendAuthStatus() {
 
 // Initialize connection on page load
 window.addEventListener('load', () => {
-    // Try to load pending messages from localStorage
-    try {
-        const savedMessages = localStorage.getItem('pendingWebSocketMessages');
-        if (savedMessages) {
-            pendingMessages = JSON.parse(savedMessages);
-            console.log(`Loaded ${pendingMessages.length} pending messages from storage`);
+    function waitForAuthManager(callback) {
+        if (typeof AuthManager !== 'undefined' && AuthManager.isInitialized) {
+            callback();
+        } else {
+            setTimeout(() => waitForAuthManager(callback), 100);
         }
-    } catch (error) {
-        console.error('Error loading pending messages from localStorage:', error);
     }
     
-    // Get CSRF token from meta tag if available
-    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-    if (csrfMeta) {
-        csrfToken = csrfMeta.getAttribute('content');
-    }
-    
-    // Connect to server
-    setTimeout(connectWebSocket, 500);
+    waitForAuthManager(() => {
+        // CSRF-Token abrufen
+        refreshCSRFToken();
+        // Verbindung herstellen
+        connectWebSocket();
+    });
 });
 
 // Handle page visibility change to reconnect when user returns

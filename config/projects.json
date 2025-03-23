@@ -170,8 +170,8 @@
     "id": "p004",
     "title": "Helpdesk System Upgrade-> Update",
     "status": "delayed",
-    "progress": 10,
-    "nextStep": "Data migration",
+    "progress": 11,
+    "nextStep": "Requirements gathering",
     "team": [
       "Robert",
       "Elena"
@@ -183,8 +183,8 @@
         "projectId": "p004",
         "title": "Requirements gathering",
         "description": "Collect requirements from helpdesk team and users",
-        "completed": true,
-        "updatedAt": "2025-03-23T21:14:21.354Z"
+        "completed": false,
+        "updatedAt": "2025-03-23T22:12:00.092Z"
       },
       {
         "id": "s020",
@@ -199,9 +199,9 @@
         "projectId": "p004",
         "title": "Testen",
         "description": "",
-        "completed": true,
+        "completed": false,
         "priority": "medium",
-        "updatedAt": "2025-03-23T21:14:26.738Z",
+        "updatedAt": "2025-03-23T22:09:44.996Z",
         "createdAt": "2025-03-23T11:52:54.973Z",
         "tags": []
       },
@@ -210,8 +210,8 @@
         "projectId": "p004",
         "title": "System evaluation",
         "description": "Evaluate available helpdesk solutions",
-        "completed": true,
-        "updatedAt": "2025-03-23T21:14:27.820Z"
+        "completed": false,
+        "updatedAt": "2025-03-23T22:09:44.281Z"
       },
       {
         "id": "s021",
