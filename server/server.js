@@ -532,11 +532,12 @@ app.use(bodyParser.json());
 
 // File store for sessions
 const FileStore = require('session-file-store')(session);
+const sessionDir = path.join(__dirname, 'sessions');
 
 // Session configuration with file store and secure settings
 app.use(session({
     store: new FileStore({
-        path: './sessions',
+        path: sessionDir,
         ttl: 86400,
         retries: 0,
         reapInterval: 3600,
@@ -547,7 +548,7 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        secure: process.env.NODE_ENV === 'production', // In Produktion nur HTTPS
+        secure: process.env.NODE_ENV === 'development', // In Produktion nur HTTPS
         httpOnly: true, // Nicht per JS zugreifbar
         maxAge: 24 * 60 * 60 * 1000 * 30, // 24 hours * 30 Tage
         sameSite: 'lax' // CSRF-Schutz
@@ -628,62 +629,7 @@ app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'login.html'));
 });
 
-// Login POST route for authentication with rate limiting
-app.post('/login', loginLimiter, async (req, res) => {
-    const { username, password } = req.body;
-    
-    // Skip authentication if mode is public
-    if (securityConfig.mode === "public" || !securityConfig.requireLoginForChanges) {
-        req.session.authenticated = true;
-        req.session.username = "guest";
-        req.session.role = "guest";
-        return res.status(200).json({ success: true, message: 'Login successful' });
-    }
-    
-    try {
-        // Verify credentials with time-constant comparison
-        const users = securityConfig.users || [];
-        const user = users.find(u => u.username === username);
-        
-        if (user) {
-            // Hash the provided password for comparison
-            const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
-            
-            // Time-constant comparison to prevent timing attacks
-            if (hashedPassword === user.password) {
-                // Regenerate session to prevent session fixation
-                req.session.regenerate((err) => {
-                    if (err) {
-                        console.error('Session regeneration error:', err);
-                        return res.status(500).json({ success: false, message: 'Internal server error' });
-                    }
-                    
-                    // Set session data
-                    req.session.authenticated = true;
-                    req.session.username = username;
-                    req.session.role = user.role;
-                    req.session.csrfToken = crypto.randomBytes(32).toString('hex');
-                    
-                    logEvent(`User ${username} logged in successfully`);
-                    return res.status(200).json({ 
-                        success: true, 
-                        message: 'Login successful', 
-                        role: user.role,
-                        csrfToken: req.session.csrfToken
-                    });
-                });
-                return;
-            }
-        }
-        
-        // Failed login
-        logEvent(`Failed login attempt for username: ${username}`);
-        return res.status(401).json({ success: false, message: 'Invalid username or password' });
-    } catch (error) {
-        console.error('Login error:', error);
-        return res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-});
+
 
 // Logout route
 app.get('/logout', (req, res) => {
@@ -1017,7 +963,7 @@ wss.on('connection', async (ws, req) => {
     if (cookies) {
         const sessionCookie = cookies.split(';').find(c => c.trim().startsWith('projectMonitoringSessionId='));
         if (sessionCookie) {
-            const sessionId = decodeURIComponent(sessionCookie.split('=')[1].trim());
+            sessionId = decodeURIComponent(sessionCookie.split('=')[1].trim());
     
             try {
                 const sessionPath = path.join(__dirname, 'sessions', sessionId + '.json');

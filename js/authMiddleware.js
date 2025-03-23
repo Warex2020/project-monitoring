@@ -15,7 +15,7 @@ let config = {
     tokenExpiration: '24h',
     refreshTokenExpiration: '7d',
     cookieName: 'authToken',
-    secureCookies: process.env.NODE_ENV === 'production',
+    secureCookies: process.env.NODE_ENV === 'development',
     authenticatedRoutes: ['/api/projects', '/api/users'],
     openRoutes: ['/api/auth/login', '/api/auth/logout', '/api/health'],
     adminRoutes: ['/api/admin', '/api/users'],
