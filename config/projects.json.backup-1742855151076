@@ -334,16 +334,5 @@
     "steps": [],
     "updatedAt": "2025-03-23T10:15:07.799Z",
     "createdAt": "2025-03-23T09:43:24.785Z"
-  },
-  "m8nmyh67fqi75": {
-    "id": "m8nmyh67fqi75",
-    "title": "test",
-    "status": "on-track",
-    "progress": 0,
-    "nextStep": "",
-    "team": [],
-    "deadline": "",
-    "steps": [],
-    "createdAt": "2025-03-24T22:25:51.076Z"
   }
 }

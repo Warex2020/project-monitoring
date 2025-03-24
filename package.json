@@ -6,17 +6,29 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "update-deps": "npx npm-check-updates -u && npm install && cd server && npx npm-check-updates -u && npm install && cd ..",
     "docker:build": "docker compose build",
+    "docker:build:dev": "docker compose build project-monitoring-dev",
+    "docker:build:prod": "docker compose build project-monitoring",
     "docker:up": "docker compose up -d",
+    "docker:up:dev": "docker compose up -d project-monitoring-dev",
+    "docker:up:prod": "docker compose up -d project-monitoring",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
+    "docker:logs:dev": "docker compose logs -f project-monitoring-dev",
+    "docker:logs:prod": "docker compose logs -f project-monitoring",
     "docker:restart": "docker compose restart",
+    "docker:restart:dev": "docker compose restart project-monitoring-dev",
+    "docker:restart:prod": "docker compose restart project-monitoring",
+    "docker:dev": "npm run docker:build:dev && npm run docker:up:dev && npm run docker:logs:dev",
+    "docker:prod": "npm run docker:build:prod && npm run docker:up:prod",
     "docker:setup": "bash docker-run.sh",
     "docker:setup:port": "bash docker-run.sh --port",
     "test": "jest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "audit": "npm audit --production",
+    "check-updates": "npx npm-check-updates",
     "postinstall": "echo 'Installation abgeschlossen. Führe \"npm run docker:setup\" aus, um den Docker-Container zu starten.'"
   },
   "keywords": [
@@ -46,11 +58,12 @@
     "cors": "^2.8.5"
   },
   "devDependencies": {
-    "nodemon": "^2.0.22",
-    "jest": "^29.5.0",
+    "nodemon": "^3.0.1",
+    "jest": "^29.7.0",
     "supertest": "^6.3.3",
-    "eslint": "^8.38.0",
-    "eslint-plugin-security": "^1.7.1"
+    "eslint": "^8.56.0",
+    "eslint-plugin-security": "^1.7.1",
+    "npm-check-updates": "^16.14.15"
   },
   "engines": {
     "node": ">=16.0.0"

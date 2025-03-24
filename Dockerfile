@@ -1,4 +1,5 @@
-FROM node:16-alpine
+# Build Stage
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
@@ -9,21 +10,34 @@ RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 COPY server/package*.json ./server/
 
-# Installiere Root-Abhängigkeiten
-RUN npm install --production
+# Installiere Root-Abhängigkeiten (npm ci ist schneller und zuverlässiger als npm install)
+RUN npm ci --production
 
 # Installiere Abhängigkeiten im server-Verzeichnis
 WORKDIR /app/server
-RUN npm install --production
+RUN npm ci --production
 
-# Zurück zum Hauptverzeichnis
+# Runtime Stage - Nur nötige Dateien werden übernommen
+FROM node:18-alpine
+
 WORKDIR /app
 
-# Kopiere den Rest des Projekts
+# Kopiere nur die node_modules vom Builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/server/node_modules ./server/node_modules
+
+# Kopiere Projektdateien
 COPY . .
 
-# Erstelle leere config-Verzeichnisse, falls nicht vorhanden
-RUN mkdir -p config
+# Erstelle erforderliche Verzeichnisse
+RUN mkdir -p config server/sessions
+
+# Setze Berechtigungen für sessions-Verzeichnis
+RUN chmod 755 server/sessions
+
+# Optimiere Node.js-Speichernutzung
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV NODE_ENV=production
 
 EXPOSE 3420
 

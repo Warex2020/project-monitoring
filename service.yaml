@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: project-monitoring
+  labels:
+    app: project-monitoring
+spec:
+  selector:
+    app: project-monitoring
+  ports:
+  - port: 80
+    targetPort: 3420
+    name: http
+  type: ClusterIP  # Für Zugriff innerhalb des Clusters

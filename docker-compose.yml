@@ -8,25 +8,51 @@ services:
     container_name: project-monitoring
     restart: unless-stopped
     ports:
-      - "3420:3420"  # Port in der Konfiguration anpassen
+      - "3420:3420"
     volumes:
       - ./config:/app/config
-      # Wir mounten nicht mehr den server-Ordner, da dies die installierten Module überschreiben würde
       - ./css:/app/css
       - ./js:/app/js
       - ./index.html:/app/index.html
+      - ./login.html:/app/login.html
+      - ./login2.html:/app/login2.html
     networks:
       - project-monitoring-network
     environment:
       - NODE_ENV=production
-      - PORT=3420  # Port auch hier anpassen
-    # Health check hinzufügen, um den Container-Status zu überwachen
+      - PORT=3420
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:3420"]
+      test: ["CMD", "wget", "--spider", "http://localhost:3420/health"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 5s
+
+  # Entwicklungs-Service mit Hot-Reloading
+  project-monitoring-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: project-monitoring-dev
+    restart: unless-stopped
+    ports:
+      - "3420:3420"  # Anderer Port für Entwicklung
+    volumes:
+      - ./config:/app/config
+      - ./css:/app/css
+      - ./js:/app/js
+      - ./index.html:/app/index.html
+      - ./login.html:/app/login.html
+      - ./login2.html:/app/login2.html
+      # Nur spezifische Server-Dateien mounten (nicht node_modules)
+      - ./server/server.js:/app/server/server.js
+      - ./server/fileManager.js:/app/server/fileManager.js
+    networks:
+      - project-monitoring-network
+    environment:
+      - NODE_ENV=development
+      - PORT=3420
+    command: ["npx", "nodemon", "server/server.js", "--watch", "server/server.js"]
 
 networks:
   project-monitoring-network:

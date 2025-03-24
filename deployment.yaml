@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: project-monitoring
+  labels:
+    app: project-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: project-monitoring
+  template:
+    metadata:
+      labels:
+        app: project-monitoring
+    spec:
+      containers:
+      - name: project-monitoring
+        image: project-monitoring:latest
+        imagePullPolicy: IfNotPresent  # Für lokale Images
+        ports:
+        - containerPort: 3420
+          name: http
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: project-monitoring-config
+              key: NODE_ENV
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: project-monitoring-config
+              key: PORT
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "0.5"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        - name: sessions-volume
+          mountPath: /app/server/sessions
+      volumes:
+      - name: config-volume
+        persistentVolumeClaim:
+          claimName: project-monitoring-config-pvc
+      - name: sessions-volume
+        persistentVolumeClaim:
+          claimName: project-monitoring-sessions-pvc

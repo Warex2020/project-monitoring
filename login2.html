@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Debug - Project Monitoring Dashboard</title>
+    <style>
+        :root {
+            --primary-color: #4a6cf7;
+            --primary-hover: #3959d9;
+            --secondary-color: #A3A8B8;
+            --background-color: #141b2d;
+            --card-bg: #1F2940;
+            --text-color: #cbd5e1;
+            --heading-color: #f8fafc;
+            --border-color: #303c56;
+            --error-color: #e74c3c;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .login-container {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            margin: 20px auto;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .login-title {
+            color: var(--heading-color);
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .login-subtitle {
+            color: var(--secondary-color);
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 24px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--heading-color);
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 14px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-color);
+            font-size: 15px;
+        }
+        
+        .button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 14px;
+            width: 100%;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .button:hover {
+            background-color: var(--primary-hover);
+        }
+        
+        .button.loading {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        .debug-panel {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            width: 100%;
+            max-width: 800px;
+            margin: 20px auto;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .debug-title {
+            color: var(--heading-color);
+            margin-bottom: 15px;
+            font-size: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        
+        pre {
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            color: var(--text-color);
+            font-family: monospace;
+            font-size: 14px;
+            margin-bottom: 15px;
+            white-space: pre-wrap;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-true {
+            background-color: var(--success-color);
+        }
+        
+        .status-false {
+            background-color: var(--error-color);
+        }
+        
+        .status-unknown {
+            background-color: var(--warning-color);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .action-buttons .button {
+            flex: 1;
+        }
+        
+        .nav-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            display: block;
+            text-align: center;
+            margin-top: 15px;
+        }
+        
+        .debug-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .debug-info-column {
+            flex: 1;
+            padding: 10px;
+        }
+        
+        .info-item {
+            margin-bottom: 10px;
+            padding: 8px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1 class="login-title">Authentication Debugger</h1>
+        <p class="login-subtitle">Test login and check authentication status</p>
+        
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" value="admin" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" value="password" required>
+            </div>
+            
+            <button type="submit" id="login-button" class="button">Log In</button>
+        </form>
+        
+        <a href="/" class="nav-link">Back to Dashboard</a>
+    </div>
+    
+    <div class="debug-panel">
+        <h2 class="debug-title">Login Flow Debug</h2>
+        
+        <div class="debug-info">
+            <div class="debug-info-column">
+                <div class="info-item">
+                    <div class="info-label">Auth Status:</div>
+                    <div class="info-value">
+                        <span id="auth-status-indicator" class="status-indicator status-unknown"></span>
+                        <span id="auth-status">Unknown</span>
+                    </div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Login Status:</div>
+                    <div class="info-value">
+                        <span id="login-status-indicator" class="status-indicator status-unknown"></span>
+                        <span id="login-status">Not attempted</span>
+                    </div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Cookies:</div>
+                    <div class="info-value" id="cookies">None</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Local Storage Auth:</div>
+                    <div class="info-value" id="local-storage">None</div>
+                </div>
+            </div>
+            
+            <div class="debug-info-column">
+                <div class="info-item">
+                    <div class="info-label">Username:</div>
+                    <div class="info-value" id="username-value">None</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Role:</div>
+                    <div class="info-value" id="role-value">None</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Session ID:</div>
+                    <div class="info-value" id="session-id">None</div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Requires Auth:</div>
+                    <div class="info-value">
+                        <span id="requires-auth-indicator" class="status-indicator status-unknown"></span>
+                        <span id="requires-auth">Unknown</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <h3 class="debug-title">Login Response</h3>
+        <pre id="login-response">Not available yet</pre>
+        
+        <h3 class="debug-title">Auth Status Response</h3>
+        <pre id="auth-response">Not available yet</pre>
+        
+        <div class="action-buttons">
+            <button id="check-auth-button" class="button">Check Auth Status</button>
+            <button id="clear-storage-button" class="button">Clear LocalStorage</button>
+            <button id="redirect-button" class="button">Redirect to Dashboard</button>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cache DOM elements
+            const loginForm = document.getElementById('login-form');
+            const loginButton = document.getElementById('login-button');
+            const checkAuthButton = document.getElementById('check-auth-button');
+            const clearStorageButton = document.getElementById('clear-storage-button');
+            const redirectButton = document.getElementById('redirect-button');
+            
+            // Update cookies display on load
+            updateCookiesDisplay();
+            updateLocalStorageDisplay();
+            
+            // Check auth on page load
+            checkAuthStatus();
+            
+            // Login form submit handler
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // Set loading state
+                loginButton.classList.add('loading');
+                loginButton.textContent = 'Logging in...';
+                
+                // Get form data
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                
+                try {
+                    // Send login request
+                    const loginResponse = await fetch('/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ username, password }),
+                        credentials: 'include' // Important for cookies!
+                    });
+                    
+                    const loginData = await loginResponse.json();
+                    
+                    // Update login response display
+                    document.getElementById('login-response').textContent = JSON.stringify(loginData, null, 2);
+                    
+                    // Update login status
+                    const loginStatusEl = document.getElementById('login-status');
+                    const loginStatusIndicator = document.getElementById('login-status-indicator');
+                    
+                    if (loginData.success) {
+                        loginStatusEl.textContent = 'Success';
+                        loginStatusIndicator.className = 'status-indicator status-true';
+                        
+                        // Wait a bit then check auth status
+                        setTimeout(() => {
+                            checkAuthStatus();
+                        }, 500);
+                    } else {
+                        loginStatusEl.textContent = 'Failed: ' + (loginData.message || 'Unknown error');
+                        loginStatusIndicator.className = 'status-indicator status-false';
+                    }
+                    
+                    // Update displays
+                    updateCookiesDisplay();
+                    updateLocalStorageDisplay();
+                    
+                } catch (error) {
+                    console.error('Login error:', error);
+                    document.getElementById('login-response').textContent = 'Error: ' + error.message;
+                    
+                    // Update login status
+                    document.getElementById('login-status').textContent = 'Error: ' + error.message;
+                    document.getElementById('login-status-indicator').className = 'status-indicator status-false';
+                } finally {
+                    // Reset button state
+                    loginButton.classList.remove('loading');
+                    loginButton.textContent = 'Log In';
+                }
+            });
+            
+            // Check auth button handler
+            checkAuthButton.addEventListener('click', function() {
+                checkAuthStatus();
+            });
+            
+            // Clear storage button handler
+            clearStorageButton.addEventListener('click', function() {
+                localStorage.removeItem('authStatus');
+                localStorage.removeItem('csrfToken');
+                updateLocalStorageDisplay();
+                alert('LocalStorage cleared!');
+            });
+            
+            // Redirect button handler
+            redirectButton.addEventListener('click', function() {
+                window.location.href = '/?auth_refresh=1';
+            });
+            
+            // Function to update cookies display
+            function updateCookiesDisplay() {
+                const cookiesEl = document.getElementById('cookies');
+                const cookiesStr = document.cookie;
+                
+                if (cookiesStr) {
+                    cookiesEl.textContent = cookiesStr;
+                } else {
+                    cookiesEl.textContent = 'No cookies found';
+                }
+            }
+            
+            // Function to update localStorage display
+            function updateLocalStorageDisplay() {
+                const localStorageEl = document.getElementById('local-storage');
+                const authStatus = localStorage.getItem('authStatus');
+                
+                if (authStatus) {
+                    localStorageEl.textContent = authStatus;
+                } else {
+                    localStorageEl.textContent = 'No auth data found';
+                }
+            }
+            
+            // Function to check auth status
+            async function checkAuthStatus() {
+                try {
+                    const authResponse = await fetch('/api/auth-status', {
+                        method: 'GET',
+                        credentials: 'include' // Important for cookies!
+                    });
+                    
+                    const authData = await authResponse.json();
+                    
+                    // Update auth response display
+                    document.getElementById('auth-response').textContent = JSON.stringify(authData, null, 2);
+                    
+                    // Update auth status indicators
+                    const authStatusEl = document.getElementById('auth-status');
+                    const authStatusIndicator = document.getElementById('auth-status-indicator');
+                    const requiresAuthEl = document.getElementById('requires-auth');
+                    const requiresAuthIndicator = document.getElementById('requires-auth-indicator');
+                    
+                    // Update auth status
+                    authStatusEl.textContent = authData.authenticated ? 'Authenticated' : 'Not Authenticated';
+                    authStatusIndicator.className = 'status-indicator status-' + authData.authenticated;
+                    
+                    // Update requires auth status
+                    requiresAuthEl.textContent = authData.requiresAuth ? 'Required' : 'Not Required';
+                    requiresAuthIndicator.className = 'status-indicator status-' + authData.requiresAuth;
+                    
+                    // Update user info
+                    document.getElementById('username-value').textContent = authData.username || 'None';
+                    document.getElementById('role-value').textContent = authData.role || 'None';
+                    document.getElementById('session-id').textContent = authData.sessionID || 'None';
+                    
+                    // Save to localStorage if authenticated
+                    if (authData.authenticated) {
+                        localStorage.setItem('authStatus', JSON.stringify({
+                            authenticated: true,
+                            username: authData.username,
+                            role: authData.role,
+                            requiresAuth: authData.requiresAuth
+                        }));
+                        
+                        // Store CSRF token if provided
+                        if (authData.csrfToken) {
+                            localStorage.setItem('csrfToken', authData.csrfToken);
+                        }
+                        
+                        updateLocalStorageDisplay();
+                    }
+                    
+                } catch (error) {
+                    console.error('Auth check error:', error);
+                    document.getElementById('auth-response').textContent = 'Error: ' + error.message;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

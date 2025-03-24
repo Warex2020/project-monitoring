@@ -44,6 +44,16 @@ const PROJECTS_FILE = path.join(CONFIG_PATH, 'projects.json');
 const CONFIG_FILE = path.join(CONFIG_PATH, 'config.json');
 const LOG_FILE = path.join(CONFIG_PATH, 'access.log');
 
+// Sessions-Verzeichnis erstellen
+const sessionsDir = path.join(__dirname, 'sessions');
+if (!require('fs').existsSync(sessionsDir)) {
+    require('fs').mkdirSync(sessionsDir, { recursive: true });
+    console.log('Sessions directory created at:', sessionsDir);
+}
+// Berechtigungen setzen
+require('fs').chmodSync(sessionsDir, '777');
+console.log('Sessions directory permissions set to 777');
+
 // Asynchronous logger
 const logEvent = async (message) => {
     const timestamp = new Date().toISOString();
@@ -537,21 +547,20 @@ const sessionDir = path.join(__dirname, 'sessions');
 // Session configuration with file store and secure settings
 app.use(session({
     store: new FileStore({
-        path: sessionDir,
+        path: path.join(__dirname, 'sessions'), // Absoluten Pfad verwenden!
         ttl: 86400,
         retries: 0,
         reapInterval: 3600,
-        logFn: function() {}
+        logFn: function(message) { console.log(message); } // Logs aktivieren für Debugging
     }),
     secret: securityConfig.sessionSecret,
-    name: 'projectMonitoringSessionId', // Nicht der Standard-Name
-    resave: false,
-    saveUninitialized: false,
+    name: 'projectMonitoringSessionId',
+    resave: true, // Auf true ändern!
+    saveUninitialized: true, // Auf true ändern!
     cookie: { 
-        secure: process.env.NODE_ENV === 'development', // In Produktion nur HTTPS
-        httpOnly: true, // Nicht per JS zugreifbar
-        maxAge: 24 * 60 * 60 * 1000 * 30, // 24 hours * 30 Tage
-        sameSite: 'lax' // CSRF-Schutz
+        secure: false, // Auf false für HTTP setzen!
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24 Stunden
     }
 }));
 
@@ -563,8 +572,11 @@ app.use(cors({
         
         const allowedOrigins = [
             'http://localhost:3420', 
+            'http://localhost:3421',  // Füge diese Zeile hinzu
             'http://10.66.66.5:3420', 
-            'http://127.0.0.1:3420'
+            'http://10.66.66.5:3421', // Füge diese Zeile hinzu
+            'http://127.0.0.1:3420',
+            'http://127.0.0.1:3421'   // Füge diese Zeile hinzu
         ];
         
         if (allowedOrigins.indexOf(origin) !== -1) {
@@ -582,6 +594,11 @@ app.use((req, res, next) => {
         req.session.csrfToken = crypto.randomBytes(32).toString('hex');
     }
     next();
+});
+
+// Add this route before the catch-all route in server.js
+app.get('/login2', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'login2.html'));
 });
 
 // Make static files available from the root directory
@@ -721,9 +738,45 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
 
+app.get('/api/auth-status', (req, res) => {
+    // Debug output
+    console.log('Auth status request:');
+    console.log('- Session ID:', req.sessionID);
+    console.log('- Has session?', !!req.session);
+    console.log('- Session content:', req.session);
+    console.log('- Cookies received:', req.headers.cookie);
+    console.log('- Remote IP:', req.ip);
+    
+    // Get session-based authentication status
+    const isAuthenticated = req.session && req.session.authenticated === true;
+    const needsAuth = securityConfig.mode === "private" && securityConfig.requireLoginForChanges;
+    
+    // Send response and debug output
+    const response = {
+        authenticated: isAuthenticated,
+        requiresAuth: needsAuth,
+        username: req.session?.username || null,
+        role: req.session?.role || null,
+        csrfToken: req.session?.csrfToken || null,
+        serverTime: new Date().toISOString(),
+        sessionID: req.sessionID  // Include for debugging
+    };
+    
+    console.log('Auth response:', response);
+    
+    res.json(response);
+});
+
 // Login POST route for authentication with rate limiting
 app.post('/login', loginLimiter, async (req, res) => {
     const { username, password } = req.body;
+
+    console.log('Login attempt:', { username, hasPassword: !!password });
+    console.log('Security config:', {
+        mode: securityConfig.mode,
+        requireLogin: securityConfig.requireLoginForChanges,
+        usersConfigured: Array.isArray(securityConfig.users) && securityConfig.users.length > 0
+    });
     
     // Skip authentication if mode is public
     if (securityConfig.mode === "public" || !securityConfig.requireLoginForChanges) {
@@ -892,7 +945,6 @@ const checkWriteAccess = async (directory) => {
 };
 
 // Pfad zum Sessions-Verzeichnis prüfen und ggf. erstellen
-const sessionDir = path.join(__dirname, 'sessions');
 fs.mkdir(sessionDir, { recursive: true })
     .then(() => checkWriteAccess(sessionDir))
     .catch(err => {
@@ -1108,13 +1160,15 @@ function isClientAuthenticated(ws) {
         // Try to get session from file store
         try {
             const sessionDir = './sessions';
-            const sessionFiles = fs.readdirSync(sessionDir);
+            // Verwende das synchrone fs-Modul, nicht das Promise-basierte
+            const fsSync = require('fs');
+            const sessionFiles = fsSync.readdirSync(sessionDir);
             
             // Find session file that might contain this session ID
             for (const file of sessionFiles) {
                 if (file.startsWith('sess:')) {
                     try {
-                        const sessionData = fs.readFileSync(path.join(sessionDir, file), 'utf8');
+                        const sessionData = fsSync.readFileSync(path.join(sessionDir, file), 'utf8');
                         const sessionJson = JSON.parse(sessionData);
                         
                         // If session has authenticated flag and matches the connection's session ID
@@ -1225,95 +1279,159 @@ async function handleClientMessage(message, ws) {
         return;
     }
     
-    // Special handling for authentication messages
-    if (message.type === 'authenticate') {
-        const sessionId = message.data?.sessionId;
-        const clientAuthenticated = message.data?.authenticated;
-        
-        const connInfo = connections.get(ws);
-        if (!connInfo) {
-            return;
-        }
-        
-        console.log(`Client ${sessionId} sent authenticate message`);
-        
-        // Wenn ein Session-Cookie vorhanden ist, versuchen wir die Session zu verifizieren
-        if (connInfo.sessionId) {
-            try {
-                // Direkter Zugriff auf Session-Dateien (synchron für einfacheres Handling)
-                const sessionDir = './sessions';
-                try {
-                    const sessionFiles = fs.readdirSync(sessionDir);
-                    let authenticated = false;
-                    let username = null;
-                    let role = null;
-                    
-                    // Suche nach der Session-Datei
-                    for (const file of sessionFiles) {
-                        if (file.includes(connInfo.sessionId)) {
-                            try {
-                                const sessionData = fs.readFileSync(path.join(sessionDir, file), 'utf8');
-                                const sessionJson = JSON.parse(sessionData);
-                                
-                                if (sessionJson.authenticated) {
-                                    authenticated = true;
-                                    username = sessionJson.username || null;
-                                    role = sessionJson.role || null;
-                                    
-                                    console.log(`Found authenticated session for: ${username}`);
-                                    break;
-                                }
-                            } catch (e) {
-                                console.error('Error parsing session file:', e);
-                            }
-                        }
-                    }
-                    
-                    // Aktualisiere die Verbindungsinfo mit den gefundenen Daten
-                    connInfo.authenticated = authenticated;
-                    connInfo.username = username;
-                    connInfo.role = role;
-                    connections.set(ws, connInfo);
-                    
-                    // Sende den authentifizierten Status zurück
-                    ws.send(JSON.stringify({
-                        type: 'auth_status',
-                        data: {
-                            authenticated: authenticated,
-                            username: username,
-                            role: role,
-                            timestamp: Date.now()
-                        }
-                    }));
-                    
-                    console.log(`Client ${sessionId} authentication status updated:`, authenticated);
-                    return;
-                } catch (fsErr) {
-                    console.error('Error reading session directory:', fsErr);
-                }
-            } catch (err) {
-                console.error('Error verifying session:', err);
-            }
-        }
-        
-        // Fallback - sende den vorhandenen Status (nicht authentifiziert)
-        ws.send(JSON.stringify({
-            type: 'auth_status',
-            data: {
-                authenticated: connInfo.authenticated || false,
-                username: connInfo.username || null,
-                role: connInfo.role || null,
-                timestamp: Date.now()
-            }
-        }));
-        
-        console.log(`Client ${sessionId} using default authentication status:`, connInfo.authenticated || false);
+// Special handling for authentication messages
+if (message.type === 'authenticate') {
+    const sessionId = message.data?.sessionId;
+    const clientAuthenticated = message.data?.authenticated;
+    
+    const connInfo = connections.get(ws);
+    if (!connInfo) {
         return;
     }
     
+    console.log(`Client ${sessionId} sent authenticate message`);
+    
+    // Session-Cookie aus der Anfrage extrahieren, falls nicht explizit übergeben
+    if (!connInfo.sessionId && message.data && message.data.cookies) {
+        const cookies = message.data.cookies;
+        const sessionCookie = cookies.split(';').find(c => c.trim().startsWith('projectMonitoringSessionId='));
+        if (sessionCookie) {
+            connInfo.sessionId = decodeURIComponent(sessionCookie.split('=')[1].trim());
+        }
+    }
+    
+    // Wenn ein Session-Cookie vorhanden ist, versuchen wir die Session zu verifizieren
+    if (connInfo.sessionId) {
+        try {
+            // Direkter Zugriff auf Session-Dateien (synchron für einfacheres Handling)
+            const sessionDir = path.join(__dirname, 'sessions'); // Absoluter Pfad!
+            try {
+                // Verwende das synchrone fs-Modul
+                const fsSync = require('fs');
+                
+                // Prüfe, ob Verzeichnis existiert
+                if (!fsSync.existsSync(sessionDir)) {
+                    fsSync.mkdirSync(sessionDir, { recursive: true });
+                    console.log(`Sessions directory created at ${sessionDir}`);
+                }
+                
+                const sessionFiles = fsSync.readdirSync(sessionDir);
+                let authenticated = false;
+                let username = null;
+                let role = null;
+                
+                // Die Session-ID kann in verschiedenen Formaten erscheinen
+                const sessionIdVariants = [
+                    connInfo.sessionId,
+                    `sess:${connInfo.sessionId}`,
+                    connInfo.sessionId.replace(/:/g, '')
+                ];
+                
+                console.log(`Looking for session with ID variants: ${sessionIdVariants.join(', ')}`);
+                console.log(`Found ${sessionFiles.length} session files`);
+                
+                // Suche nach der Session-Datei
+                for (const file of sessionFiles) {
+                    // Prüfe alle möglichen Session-ID-Formate
+                    const sessionMatch = sessionIdVariants.some(id => 
+                        file.includes(id) || 
+                        id.includes(file.replace(/\..+$/, ''))
+                    );
+                    
+                    if (sessionMatch) {
+                        try {
+                            console.log(`Found potential session file: ${file}`);
+                            const sessionPath = path.join(sessionDir, file);
+                            const sessionData = fsSync.readFileSync(sessionPath, 'utf8');
+                            
+                            // Versuche verschiedene JSON-Formate zu parsen
+                            let sessionJson;
+                            try {
+                                sessionJson = JSON.parse(sessionData);
+                            } catch (jsonErr) {
+                                // Manchmal hat die Session-Datei ein spezielles Format mit Präfix
+                                const jsonMatch = sessionData.match(/({.+})/);
+                                if (jsonMatch) {
+                                    sessionJson = JSON.parse(jsonMatch[1]);
+                                } else {
+                                    throw jsonErr;
+                                }
+                            }
+                            
+                            // Prüfe verschiedene Authentifizierungsflags
+                            if (sessionJson.authenticated || 
+                                (sessionJson.cookie && sessionJson.cookie.authenticated) || 
+                                (sessionJson.passport && sessionJson.passport.user)) {
+                                
+                                authenticated = true;
+                                username = sessionJson.username || 
+                                        (sessionJson.passport && sessionJson.passport.user) || 
+                                        null;
+                                role = sessionJson.role || 'user';
+                                
+                                console.log(`Found authenticated session for: ${username}`);
+                                break;
+                            }
+                        } catch (e) {
+                            console.error(`Error parsing session file ${file}:`, e);
+                        }
+                    }
+                }
+
+                // Aktualisiere die Verbindungsinfo mit den gefundenen Daten
+                connInfo.authenticated = authenticated;
+                connInfo.username = username;
+                connInfo.role = role;
+                connInfo.lastAuthCheck = Date.now(); // Zeitstempel für letzte Prüfung
+                connections.set(ws, connInfo);
+                
+                // Sende den authentifizierten Status zurück
+                ws.send(JSON.stringify({
+                    type: 'auth_status',
+                    data: {
+                        authenticated: authenticated,
+                        username: username,
+                        role: role,
+                        timestamp: Date.now()
+                    }
+                }));
+                
+                console.log(`Client ${sessionId} authentication status updated:`, authenticated);
+                return;
+            } catch (fsErr) {
+                console.error('Error reading session directory:', fsErr);
+            }
+        } catch (err) {
+            console.error('Error verifying session:', err);
+        }
+    }
+    
+    // Fallback - sende den vorhandenen Status
+    ws.send(JSON.stringify({
+        type: 'auth_status',
+        data: {
+            authenticated: connInfo.authenticated || false,
+            username: connInfo.username || null,
+            role: connInfo.role || null,
+            timestamp: Date.now()
+        }
+    }));
+    
+    console.log(`Client ${sessionId} using existing authentication status:`, connInfo.authenticated || false);
+    return;
+}
+    
     // For synchronization requests
     if (message.type === 'request_sync') {
+        // First do the normal sync
         syncProjects(ws);
+        
+        // Then, send a specific sync_response for the offline manager
+        ws.send(JSON.stringify({
+            type: 'sync_response',
+            data: projects,  // Send all projects for conflict resolution
+            timestamp: Date.now()
+        }));
         return;
     }
     

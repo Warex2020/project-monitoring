@@ -2,6 +2,11 @@
 
 Ein modernes, interaktives Dashboard zur Überwachung von IT-Projekten mit Live-Updates und Echtzeit-Kollaboration.
 
+## Hinweis
+
+Dieses Projekt befindet sich noch in der Entwicklung. Es können daher noch Fehler auftreten und einige Funktionen sind möglicherweise nicht vollständig implementiert.
+
+
 ## Features
 
 - **Modernes Dark Mode Design** speziell für IT-Teams
@@ -56,6 +61,15 @@ npm install
 ```bash
 npm start
 ```
+
+-> Für Produktionsumgebungen
+npm run docker:prod
+
+-> Für Entwicklung
+chmod +x update-dependencies.sh
+./update-dependencies.sh
+
+npm run docker:dev
 
 6. Im Browser öffnen: `http://localhost:3420`
 

@@ -2,7 +2,7 @@
 
 Alle wichtigen Änderungen am IT-Projekt-Monitoring-Dashboard werden in dieser Datei dokumentiert.
 
-## [1.4.0] - 2025-04-15
+## [0.0.5] - 2025-04-15
 
 ### Hinzugefügt
 - Verbesserte Benutzeroberfläche (UX)
@@ -56,7 +56,7 @@ Alle wichtigen Änderungen am IT-Projekt-Monitoring-Dashboard werden in dieser D
 - Inkonsistenzen bei der Anzeige von Teammitgliedern
 - Verzögerungen bei der Aktualisierung des Layouts nach Änderungen
 
-## [1.3.0] - 2025-03-23
+## [0.0.4] - 2025-03-23
 
 ### Hinzugefügt
 - Zentrale Konfiguration für Titel und Untertitel des Dashboards
@@ -90,7 +90,7 @@ Alle wichtigen Änderungen am IT-Projekt-Monitoring-Dashboard werden in dieser D
 - Anpassung der Client-Logik für Authentifizierungs-Workflows
 - Erweitertes Fehlerhandling für Authentifizierungsprobleme
 
-## [1.2.0] - 2025-03-22
+## [0.0.3] - 2025-03-22
 
 ### Hinzugefügt
 - Drag-and-Drop-Funktionalität für Projektschritte
@@ -121,7 +121,7 @@ Alle wichtigen Änderungen am IT-Projekt-Monitoring-Dashboard werden in dieser D
 - Projektschritte können jetzt per Drag-and-Drop neu angeordnet werden
 - Verbesserte Transition-Effekte für ein moderneres Erscheinungsbild
 
-## [1.1.0] - 2025-03-22
+## [0.0.2] - 2025-03-22
 
 ### Hinzugefügt
 - Offline-Modus ermöglicht Arbeiten ohne Serververbindung
@@ -149,7 +149,7 @@ Alle wichtigen Änderungen am IT-Projekt-Monitoring-Dashboard werden in dieser D
 - Datenverlust bei Netzwerkunterbrechungen
 - Browser-Caching-Probleme bei bestimmten Änderungen
 
-## [1.0.0] - 2025-03-22
+## [0.0.1] - 2025-03-22
 
 ### Erste öffentliche Version
 - Modernes Dark-Mode Design für IT-Teams

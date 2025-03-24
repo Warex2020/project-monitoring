@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: project-monitoring-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    # Weitere Annotationen je nach Ingress-Controller
+spec:
+  rules:
+  - host: project-monitoring.example.com  # Ersetze mit deinem Domainnamen
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: project-monitoring
+            port:
+              number: 80

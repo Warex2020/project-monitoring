@@ -1,0 +1,48 @@
+# Build-Phase
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Build-Tools installieren
+RUN apk add --no-cache python3 make g++
+
+# Nur package.json-Dateien kopieren
+COPY package*.json ./
+COPY server/package*.json ./server/
+
+# Root-Abhängigkeiten installieren
+RUN npm ci --production
+
+# Server-Abhängigkeiten installieren
+WORKDIR /app/server
+RUN npm ci --production
+
+# Runtime-Phase
+FROM node:18-alpine
+
+WORKDIR /app
+
+# node_modules aus der Build-Phase kopieren
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/server/node_modules ./server/node_modules
+
+# Projektdateien kopieren
+COPY . .
+
+# Verzeichnisse anlegen und Berechtigungen setzen
+RUN mkdir -p config server/sessions \
+    && chown -R node:node config server/sessions \
+    && chmod 755 server/sessions
+
+# Zu nicht-Root-Benutzer wechseln für bessere Sicherheit
+USER node
+
+# Node.js-Optionen für bessere Performance in Kubernetes
+ENV NODE_OPTIONS="--max-old-space-size=2048 --max-http-header-size=16384"
+ENV NODE_ENV=production
+
+# Port freigeben
+EXPOSE 3420
+
+# Server starten
+CMD ["node", "server/server.js"]

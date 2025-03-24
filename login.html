@@ -408,5 +408,97 @@
             });
         });
     </script>
+
+
+<!-- Add this right before the closing </body> tag in login.html -->
+<script>
+  // Test login button that will use fetch with the right credentials
+  document.addEventListener('DOMContentLoaded', function() {
+    // Create button
+    const testButton = document.createElement('button');
+    testButton.textContent = 'Debug Login';
+    testButton.style.position = 'fixed';
+    testButton.style.bottom = '10px';
+    testButton.style.left = '10px';
+    testButton.style.padding = '10px 15px';
+    testButton.style.backgroundColor = '#FF5722';
+    testButton.style.color = 'white';
+    testButton.style.border = 'none';
+    testButton.style.borderRadius = '5px';
+    testButton.style.cursor = 'pointer';
+    
+    testButton.onclick = async function() {
+      console.clear();
+      console.log('Starting debug login process...');
+      
+      // Show currently stored cookies
+      console.log('Current cookies:', document.cookie);
+      
+      // Check for existing session in localStorage
+      console.log('localStorage auth status:', localStorage.getItem('authStatus'));
+      
+      // Test login
+      try {
+        console.log('Sending login request...');
+        const loginResponse = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: 'admin', 
+            password: 'password'
+          }),
+          credentials: 'include'
+        });
+        
+        const loginData = await loginResponse.json();
+        console.log('Login response:', loginData);
+        
+        // Check cookies after login
+        console.log('Cookies after login:', document.cookie);
+        
+        // Wait 1 second
+        await new Promise(r => setTimeout(r, 1000));
+        
+        // Now check auth status directly
+        console.log('Checking auth status...');
+        const authResponse = await fetch('/api/auth-status', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        const authData = await authResponse.json();
+        console.log('Auth status response:', authData);
+        
+        // Check cookies after auth check
+        console.log('Cookies after auth check:', document.cookie);
+        
+        // Save auth data to localStorage
+        if (loginData.success) {
+          localStorage.setItem('authStatus', JSON.stringify({
+            authenticated: true,
+            username: 'admin',
+            role: loginData.role || 'admin',
+            requiresAuth: true
+          }));
+          
+          console.log('Auth data saved to localStorage');
+          
+          // IF the auth check succeeded, redirect
+          if (authData.authenticated) {
+            console.log('Authentication verified! Redirecting...');
+            window.location.href = '/?auth_refresh=1';
+          } else {
+            console.error('LOGIN SUCCESS BUT AUTH CHECK FAILED!');
+            alert('Login succeeded but auth check failed! Check console for details.');
+          }
+        }
+      } catch (error) {
+        console.error('Login debug error:', error);
+      }
+    };
+    
+    document.body.appendChild(testButton);
+  });
+</script>
 </body>
 </html>
