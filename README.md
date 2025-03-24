@@ -6,6 +6,9 @@ Ein modernes, interaktives Dashboard zur Überwachung von IT-Projekten mit Live-
 
 Dieses Projekt befindet sich noch in der Entwicklung. Es können daher noch Fehler auftreten und einige Funktionen sind möglicherweise nicht vollständig implementiert.
 
+## Screenshot
+
+![Dashboard Screenshot](screenshots/bild1.jpg)
 
 ## Features
 
